@@ -1,0 +1,66 @@
+name: Check Windows ext builds
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/windows-ext-check.yml
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, openssl, mbstring
+          ini-values: memory_limit=-1
+          tools: composer, php-cs-fixer
+      - run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      - run: php-cs-fixer fix --dry-run --diff --ansi
+      - run: vendor/bin/phpstan analyse
+      - run: vendor/bin/phpunit tests/ --no-coverage
+
+  build:
+    name: "${{ matrix.extension }} on windows-x86_64"
+    runs-on: windows-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        extension:
+          - pdo_pgsql,pgsql
+          - swow
+          - imagick
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+      - run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist --no-dev
+      - name: Build
+        run: |
+          ./bin/spc doctor --auto-fix
+          ./bin/spc build "${{ matrix.extension }}" --build-cli --build-cgi --build-micro --with-suggests -vvv --dl-with-php=8.5
+      - name: Diagnose binary dependencies
+        if: failure()
+        run: |
+          $dumpbin = (Get-ChildItem "C:/Program Files/Microsoft Visual Studio/*/*/VC/Tools/MSVC/*/bin/HostX64/x64/dumpbin.exe" | Select-Object -First 1).FullName
+          foreach ($name in 'php.exe', 'php-cgi.exe', 'micro.sfx') {
+            $bin = Get-ChildItem -Recurse -Filter $name -Path buildroot, source -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($bin) {
+              Write-Host "===== $($bin.FullName) ====="
+              & $dumpbin /DEPENDENTS $bin.FullName
+            }
+          }
+      - name: Upload logs
+        if: always() && hashFiles('log/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.extension }}
+          path: log
