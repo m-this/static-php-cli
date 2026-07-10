@@ -202,6 +202,25 @@ class GenExtTestMatrixCommandTest extends TestCase
     }
 
     /**
+     * --sapi=frankenphp must exclude non-thread-safe extensions from ZTS entries,
+     * while keeping them in the default (NTS) entries.
+     */
+    public function testFrankenphpSapiExcludesNonThreadSafeExtensions(): void
+    {
+        $matrix = $this->runMatrix(['--sapi' => 'frankenphp']);
+
+        $frankenphpEntries = array_values(array_filter($matrix, static fn (array $entry): bool => $entry['sapi'] === 'frankenphp'));
+        $this->assertNotEmpty($frankenphpEntries, '--sapi=frankenphp must yield frankenphp entries');
+        foreach ($frankenphpEntries as $entry) {
+            $parts = explode(',', $entry['extension']);
+            $this->assertNotContains('imap', $parts, 'imap is not thread safe and must not appear in frankenphp (ZTS) entries');
+        }
+
+        $defaultEntries = array_values(array_filter($matrix, static fn (array $entry): bool => $entry['sapi'] === 'default'));
+        $this->assertNotEmpty($this->findEntriesContaining($defaultEntries, 'imap'), 'imap must still appear in default (NTS) entries');
+    }
+
+    /**
      * --tier2 must produce only Tier2 runners and no Windows entries.
      */
     public function testTier2Flag(): void
@@ -308,6 +327,9 @@ class GenExtTestMatrixCommandTest extends TestCase
             'ext-curl' => $ext(),
             'ext-redis' => $ext(),
             'ext-simdjson' => $ext(),
+
+            // Not thread safe — excluded from ZTS (frankenphp) entries
+            'ext-imap' => $ext(),
 
             // DFS chain: dom depends on xml; xml depends on lib 'libxml2'
             'ext-xml' => $ext(['arg-type' => 'standard'], ['depends' => ['libxml2']]),

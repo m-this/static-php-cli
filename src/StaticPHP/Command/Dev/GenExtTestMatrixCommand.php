@@ -42,6 +42,13 @@ class GenExtTestMatrixCommand extends BaseCommand
     ];
 
     /**
+     * Extensions that are not thread safe, excluded from ZTS SAPI entries (e.g. frankenphp).
+     */
+    private const array ZTS_EXCLUDE = [
+        'imap',
+    ];
+
+    /**
      * Extra build flags appended when a matrix entry contains any of the listed extensions.
      * Key: extension display name (without ext- prefix). Value: extra flags string.
      */
@@ -151,11 +158,12 @@ class GenExtTestMatrixCommand extends BaseCommand
         );
 
         if (in_array('frankenphp', $filter_sapis, true)) {
+            $zts_exclude = array_fill_keys(array_map(fn ($n) => 'ext-' . $n, self::ZTS_EXCLUDE), true);
             [$frankenphp_entries, $frankenphp_ext_lib_deps] = $this->buildEntriesForRunners(
                 self::OS_RUNNERS,
                 [],
-                $all_regular,
-                $all_virtual,
+                array_diff_key($all_regular, $zts_exclude),
+                array_diff_key($all_virtual, $zts_exclude),
                 $all_libraries,
                 self::FRANKENPHP_BUILD_TARGETS,
                 'frankenphp',
