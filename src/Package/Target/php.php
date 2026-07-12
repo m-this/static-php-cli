@@ -129,9 +129,6 @@ class php extends TargetPackage
     #[InitPackage]
     public function init(TargetPackage $package): void
     {
-        // universal build options (may move to base class later)
-        $package->addBuildOption('with-added-patch', 'P', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Inject patch script outside');
-
         // basic build argument and options for PHP
         $package->addBuildArgument('extensions', InputArgument::REQUIRED, 'Comma-separated list of static extensions to build');
         $package->addBuildOption('no-strip', null, null, 'build without strip, keep symbols to debug');
