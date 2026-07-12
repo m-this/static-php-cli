@@ -115,7 +115,7 @@ class ConsoleApplication extends Application
      */
     public function doRun(InputInterface $input, OutputInterface $output): int
     {
-        InteractiveTerm::init($input, $output);
+        InteractiveTerm::init($output);
         return parent::doRun($input, $output);
     }
 }

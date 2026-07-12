@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace StaticPHP\Util;
 
 use Symfony\Component\Console\Helper\ProgressIndicator;
-use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\ConsoleOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 use ZM\Logger\ConsoleColor;
@@ -16,23 +15,15 @@ class InteractiveTerm
 
     private static ?OutputInterface $output = null;
 
-    private static ?bool $noAnsi = null;
-
     /**
-     * Initialize with a real Symfony Console input/output (called from ConsoleApplication::doRun()).
-     * After this call, all output goes through the configured Console, and noAnsi reflects
-     * the user's --no-ansi flag.
+     * Initialize with a real Symfony Console output (called from ConsoleApplication::doRun()).
+     * After this call, all output goes through the configured Console. Color usage follows
+     * the output's decoration state, which Symfony's configureIO() derives from --ansi,
+     * --no-ansi and TTY detection.
      */
-    public static function init(InputInterface $input, OutputInterface $output): void
+    public static function init(OutputInterface $output): void
     {
         self::$output = $output;
-        try {
-            self::$noAnsi = (bool) $input->getOption('no-ansi');
-        } catch (\InvalidArgumentException) {
-            // Symfony hasn't bound the application-level input definition yet
-            // (e.g. ArgvInput passed directly to doRun() on some versions).
-            self::$noAnsi = false;
-        }
     }
 
     public static function notice(string $message, bool $indent = false): void
@@ -159,33 +150,17 @@ class InteractiveTerm
         self::$indicator->start($message);
     }
 
-    /**
-     * Lazy default initialization used when init() was never called (early-boot errors,
-     * tests, programmatic usage). Creates a plain STDERR output so error messages are
-     * visible without depending on the Symfony Console lifecycle.
-     */
-    private static function initDefault(): void
-    {
-        if (self::$output !== null) {
-            return;
-        }
-        self::$output = new ConsoleOutput(ConsoleOutput::VERBOSITY_NORMAL, false);
-        self::$noAnsi = false;
-    }
-
     private static function noAnsi(): bool
     {
-        if (self::$output === null) {
-            self::initDefault();
-        }
-        return self::$noAnsi ?? false;
+        return !self::output()->isDecorated();
     }
 
+    /**
+     * Returns the configured output, lazily creating a plain STDERR-capable fallback when
+     * init() was never called (early-boot errors, tests, programmatic usage).
+     */
     private static function output(): OutputInterface
     {
-        if (self::$output === null) {
-            self::initDefault();
-        }
-        return self::$output;
+        return self::$output ??= new ConsoleOutput(ConsoleOutput::VERBOSITY_NORMAL, false);
     }
 }
