@@ -9,7 +9,8 @@ use StaticPHP\Util\InteractiveTerm;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
- * Tests for InteractiveTerm progress rendering.
+ * Tests for InteractiveTerm progress rendering, especially the elapsed
+ * duration appended to finished progress cycles (RFC #964).
  *
  * @internal
  */
@@ -31,6 +32,28 @@ class InteractiveTermTest extends TestCase
         $this->resetProgressState();
     }
 
+    public function testFinishAppendsElapsedDurationAfterIndicateProgress(): void
+    {
+        InteractiveTerm::indicateProgress('Building package: test');
+        InteractiveTerm::finish('Built package: test');
+
+        $this->assertMatchesRegularExpression('/Built package: test \(\s*\d+\.\ds\)/', $this->output->fetch());
+    }
+
+    public function testFinishWithoutProgressCycleDoesNotAppendDuration(): void
+    {
+        InteractiveTerm::indicateProgress('Building package: test');
+        InteractiveTerm::finish('Built package: test');
+        $this->output->fetch();
+
+        InteractiveTerm::indicateProgress('Building package: second');
+        InteractiveTerm::finish('Built package: second');
+        InteractiveTerm::finish('No cycle here');
+
+        $this->assertMatchesRegularExpression('/Built package: second \(\s*\d+\.\ds\)/', $this->output->fetch());
+        $this->assertNull($this->getStaticProperty('startedAt'));
+    }
+
     public function testColorsFollowOutputDecoration(): void
     {
         InteractiveTerm::notice('plain message');
@@ -42,9 +65,24 @@ class InteractiveTermTest extends TestCase
         $this->assertStringContainsString("\033[", $decorated->fetch());
     }
 
+    public function testFailedFinishAlsoAppendsDuration(): void
+    {
+        InteractiveTerm::indicateProgress('Building package: broken');
+        InteractiveTerm::finish('Building package failed: broken', false);
+
+        $this->assertMatchesRegularExpression('/Building package failed: broken \(\s*\d+\.\ds\)/', $this->output->fetch());
+    }
+
     private function resetProgressState(): void
     {
-        $ref = new \ReflectionProperty(InteractiveTerm::class, 'indicator');
-        $ref->setValue(null, null);
+        foreach (['indicator', 'startedAt'] as $property) {
+            $ref = new \ReflectionProperty(InteractiveTerm::class, $property);
+            $ref->setValue(null, null);
+        }
+    }
+
+    private function getStaticProperty(string $property): mixed
+    {
+        return new \ReflectionProperty(InteractiveTerm::class, $property)->getValue();
     }
 }

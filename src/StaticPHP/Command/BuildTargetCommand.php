@@ -50,7 +50,7 @@ class BuildTargetCommand extends BaseCommand
 
         $usedtime = round(microtime(true) - $starttime, 1);
         $this->output->writeln("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        $this->output->writeln("<info>✔ BUILD SUCCESSFUL ({$usedtime} s)</info>");
+        $this->output->writeln("<info>✔ BUILD SUCCESSFUL ({$usedtime}s)</info>");
         $this->output->writeln("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
         $installer->printBuildPackageOutputs();

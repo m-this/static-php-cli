@@ -13,6 +13,8 @@ class InteractiveTerm
 {
     private static ?ProgressIndicator $indicator = null;
 
+    private static ?float $startedAt = null;
+
     private static ?OutputInterface $output = null;
 
     /**
@@ -108,6 +110,11 @@ class InteractiveTerm
         $message = $no_ansi ? strip_ansi_colors($message) : $message;
         $output = self::output();
         if ($output->isVerbose()) {
+            $message = strip_ansi_colors($message);
+            if (self::$startedAt !== null) {
+                $message .= sprintf(' (%.1fs)', microtime(true) - self::$startedAt);
+                self::$startedAt = null;
+            }
             if ($status) {
                 logger()->info($message);
             } else {
@@ -123,10 +130,12 @@ class InteractiveTerm
             }
             self::$indicator = null;
         }
+        self::$startedAt = null;
     }
 
     public static function indicateProgress(string $message): void
     {
+        self::$startedAt ??= microtime(true);
         $no_ansi = self::noAnsi();
         $output = self::output();
         if ($output->isVerbose()) {
@@ -140,6 +149,10 @@ class InteractiveTerm
             return;
         }
         logger()->debug(strip_ansi_colors($message));
+        // Symfony's built-in %elapsed% is a time()-based integer diff, which is misleading
+        // for short steps (a 0.9s step renders as '< 1 ms'). Render it from the microtime
+        // recorded at the start of the current progress cycle instead.
+        ProgressIndicator::setPlaceholderFormatterDefinition('elapsed', static fn () => sprintf('%.1fs', microtime(true) - (self::$startedAt ?? microtime(true))));
         // if no ansi, use a dot instead of spinner
         if ($no_ansi) {
             self::$indicator = new ProgressIndicator(self::output(), 'verbose', 100, [' •', ' •']);
