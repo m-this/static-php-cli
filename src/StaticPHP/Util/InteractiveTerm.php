@@ -106,28 +106,24 @@ class InteractiveTerm
 
     public static function finish(string $message, bool $status = true): void
     {
-        $no_ansi = self::noAnsi();
-        $message = $no_ansi ? strip_ansi_colors($message) : $message;
         $output = self::output();
+        $plain = strip_ansi_colors($message);
         if ($output->isVerbose()) {
-            $message = strip_ansi_colors($message);
             if (self::$startedAt !== null) {
-                $message .= sprintf(' (%.1fs)', microtime(true) - self::$startedAt);
+                $plain .= sprintf(' (%.1fs)', microtime(true) - self::$startedAt);
                 self::$startedAt = null;
             }
             if ($status) {
-                logger()->info($message);
+                logger()->info($plain);
             } else {
-                logger()->error($message);
+                logger()->error($plain);
             }
             return;
         }
         if (self::$indicator !== null) {
-            if (!$status) {
-                self::$indicator->finish($message, ($no_ansi ? 'strip_ansi_colors' : 'strval')(ConsoleColor::red(' ✘')));
-            } else {
-                self::$indicator->finish($message, ($no_ansi ? 'strip_ansi_colors' : 'strval')(ConsoleColor::green(' ✔')));
-            }
+            $no_ansi = self::noAnsi();
+            $marker = $status ? ConsoleColor::green(' ✔') : ConsoleColor::red(' ✘');
+            self::$indicator->finish($no_ansi ? $plain : $message, $no_ansi ? strip_ansi_colors($marker) : $marker);
             self::$indicator = null;
         }
         self::$startedAt = null;
