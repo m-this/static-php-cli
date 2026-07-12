@@ -16,7 +16,7 @@ use Symfony\Component\Console\Completion\CompletionInput;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
-#[AsCommand('download')]
+#[AsCommand('download', 'Download artifacts (sources and pre-built binaries) for packages')]
 class DownloadCommand extends BaseCommand
 {
     public function configure(): void

@@ -9,7 +9,7 @@ use StaticPHP\Runtime\SystemTarget;
 use StaticPHP\Util\GlobalEnvManager;
 use Symfony\Component\Console\Attribute\AsCommand;
 
-#[AsCommand('dev:shell')]
+#[AsCommand('dev:shell', 'Enter an interactive shell with the SPC build environment')]
 class ShellCommand extends BaseCommand
 {
     public function handle(): int
