@@ -113,6 +113,67 @@ class ConfigValidatorTest extends TestCase
         $this->assertEquals('hosted', $data['test-artifact']['binary']['macos-aarch64']['type']);
     }
 
+    public function testValidateAndLintArtifactsWithInstallObject(): void
+    {
+        $data = [
+            'test-artifact' => [
+                'binary' => 'custom',
+                'install' => [
+                    'destination' => 'zig',
+                    'root' => 'zig',
+                    'bin-dir' => '',
+                    'bin' => '',
+                ],
+            ],
+        ];
+
+        ConfigValidator::validateAndLintArtifacts('test.json', $data);
+
+        $this->assertEquals('zig', $data['test-artifact']['install']['destination']);
+    }
+
+    public function testValidateAndLintArtifactsThrowsForUnknownInstallField(): void
+    {
+        $data = [
+            'test-artifact' => [
+                'binary' => 'custom',
+                'install' => ['bindir' => 'bin'],
+            ],
+        ];
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('install has invalid field [bindir]');
+        ConfigValidator::validateAndLintArtifacts('test.json', $data);
+    }
+
+    public function testValidateAndLintArtifactsThrowsForNonStringInstallField(): void
+    {
+        $data = [
+            'test-artifact' => [
+                'binary' => 'custom',
+                'install' => ['destination' => ['zig']],
+            ],
+        ];
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('install field [destination] must be string');
+        ConfigValidator::validateAndLintArtifacts('test.json', $data);
+    }
+
+    public function testValidateAndLintArtifactsThrowsForNonObjectInstallField(): void
+    {
+        $data = [
+            'test-artifact' => [
+                'binary' => 'custom',
+                'install' => 'zig',
+            ],
+        ];
+
+        $this->expectException(ValidationException::class);
+        $this->expectExceptionMessage('field [install] must be an object');
+        ConfigValidator::validateAndLintArtifacts('test.json', $data);
+    }
+
     public function testValidateAndLintArtifactsWithBinaryPlatformObject(): void
     {
         $data = [

@@ -335,63 +335,109 @@ class Artifact
     /**
      * Get binary extraction directory and mode.
      *
-     * Rules:
-     * 1. If extract is not specified: PKG_ROOT_PATH (standard mode)
-     * 2. If extract is "hosted": BUILD_ROOT_PATH (standard mode, for pre-built libraries)
-     * 3. If extract is relative path: PKG_ROOT_PATH/{value} (standard mode)
-     * 4. If extract is absolute path: {value} (standard mode)
-     * 5. If extract is array (dict): selective extraction mode
+     * The destination path is resolved by getInstallDestination(). The only other
+     * mode is selective extraction, declared as a dict under the per-platform
+     * binary 'extract' key (source file => destination path).
      *
      * @return array{path: ?string, mode: 'merge'|'selective'|'standard', files?: array}
      */
     public function getBinaryExtractConfig(array $cache_info = []): array
     {
-        if (is_string($cache_info['extract'] ?? null)) {
-            $cache_extract = $cache_info['extract'];
-            if ($cache_extract === 'hosted') {
-                return ['path' => BUILD_ROOT_PATH, 'mode' => 'standard'];
+        if (!is_string($cache_info['extract'] ?? null)) {
+            $platform = SystemTarget::getCurrentPlatformString();
+            $extract = $this->config['binary'][$platform]['extract'] ?? null;
+            if (is_array($extract)) {
+                return [
+                    'path' => null,
+                    'mode' => 'selective',
+                    'files' => $extract,
+                ];
             }
-            return ['path' => $this->replaceExtractPathVariables($cache_extract), 'mode' => 'standard'];
         }
 
-        $platform = SystemTarget::getCurrentPlatformString();
-        $binary_config = $this->config['binary'][$platform] ?? null;
+        return ['path' => $this->getInstallDestination($cache_info), 'mode' => 'standard'];
+    }
 
-        if ($binary_config === null) {
-            return ['path' => PKG_ROOT_PATH, 'mode' => 'standard'];
+    /**
+     * Get the install destination for the binary artifact: the real target path the
+     * extracted content is placed at during the install stage.
+     *
+     * Resolution order:
+     * 1. 'extract' path recorded in the download cache (set dynamically by downloaders)
+     * 2. 'install.destination' declared in the artifact config
+     * 3. legacy per-platform 'binary.<platform>.extract' string
+     * 4. default: PKG_ROOT_PATH
+     *
+     * The value 'hosted' (or a binary of type 'hosted') maps to BUILD_ROOT_PATH.
+     * Relative paths are resolved against PKG_ROOT_PATH, absolute paths are kept as-is.
+     */
+    public function getInstallDestination(array $cache_info = []): string
+    {
+        $destination = is_string($cache_info['extract'] ?? null) ? $cache_info['extract'] : null;
+
+        if ($destination === null && is_string($this->config['install']['destination'] ?? null)) {
+            $destination = $this->config['install']['destination'];
         }
 
-        $extract = $binary_config['extract'] ?? null;
-
-        // Not specified: PKG_ROOT_PATH merge
-        if ($extract === null) {
-            return ['path' => PKG_ROOT_PATH, 'mode' => 'standard'];
+        if ($destination === null) {
+            $platform = SystemTarget::getCurrentPlatformString();
+            $binary_config = $this->config['binary'][$platform] ?? null;
+            $extract = $binary_config['extract'] ?? null;
+            if (is_string($extract)) {
+                $destination = ($binary_config['type'] ?? '') === 'hosted' ? 'hosted' : $extract;
+            }
         }
 
-        // "hosted" mode: BUILD_ROOT_PATH merge (for pre-built libraries)
-        if ($extract === 'hosted' || ($binary_config['type'] ?? '') === 'hosted') {
-            return ['path' => BUILD_ROOT_PATH, 'mode' => 'standard'];
+        if ($destination === null) {
+            return PKG_ROOT_PATH;
         }
-
-        // Array (dict) mode: selective extraction
-        if (is_array($extract)) {
-            return [
-                'path' => null,
-                'mode' => 'selective',
-                'files' => $extract,
-            ];
+        if ($destination === 'hosted') {
+            return BUILD_ROOT_PATH;
         }
+        return $this->resolveInstallPath($destination, PKG_ROOT_PATH);
+    }
 
-        // String path
-        $path = $this->replaceExtractPathVariables($extract);
-
-        // Absolute path: standalone mode
-        if (!FileSystem::isRelativePath($path)) {
-            return ['path' => FileSystem::convertPath($path), 'mode' => 'standard'];
+    /**
+     * Get the root directory of the installed binary artifact ('install.root').
+     * Relative paths are resolved against PKG_ROOT_PATH. Defaults to PKG_ROOT_PATH.
+     */
+    public function getInstallRoot(): string
+    {
+        $root = $this->config['install']['root'] ?? null;
+        if (!is_string($root) || $root === '') {
+            return PKG_ROOT_PATH;
         }
+        return $this->resolveInstallPath($root, PKG_ROOT_PATH);
+    }
 
-        // Relative path: PKG_ROOT_PATH/{value} standalone mode
-        return ['path' => FileSystem::convertPath(PKG_ROOT_PATH . '/' . $path), 'mode' => 'standard'];
+    /**
+     * Get the directory containing the installed binaries ('install.bin-dir').
+     * Relative paths are resolved against the install root. An empty string means
+     * the install root itself. Defaults to {install root}/bin.
+     */
+    public function getInstallBinDir(): string
+    {
+        $bin_dir = $this->config['install']['bin-dir'] ?? 'bin';
+        if (!is_string($bin_dir) || $bin_dir === '') {
+            return $this->getInstallRoot();
+        }
+        return $this->resolveInstallPath($bin_dir, $this->getInstallRoot());
+    }
+
+    /**
+     * Get the full path of an installed binary.
+     *
+     * @param string $name Binary file name; empty means 'install.bin' from the
+     *                     artifact config, falling back to the artifact name.
+     *                     Resolved relative to getInstallBinDir().
+     */
+    public function getInstallBin(string $name = ''): string
+    {
+        if ($name === '') {
+            $bin = $this->config['install']['bin'] ?? null;
+            $name = is_string($bin) && $bin !== '' ? $bin : $this->name;
+        }
+        return $this->resolveInstallPath($name, $this->getInstallBinDir());
     }
 
     /**
@@ -631,6 +677,19 @@ class Artifact
         }
 
         logger()->debug("Executed {$executed} after-binary-extract hook(s) for [{$this->name}] on platform [{$platform}]");
+    }
+
+    /**
+     * Resolve a configured install path: replace variables, anchor relative paths
+     * at the given base directory and normalize separators.
+     */
+    private function resolveInstallPath(string $path, string $base): string
+    {
+        $path = $this->replaceExtractPathVariables($path);
+        if (FileSystem::isRelativePath($path)) {
+            $path = "{$base}/{$path}";
+        }
+        return FileSystem::convertPath($path);
     }
 
     /**

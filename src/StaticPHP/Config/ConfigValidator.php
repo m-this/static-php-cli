@@ -117,6 +117,8 @@ class ConfigValidator
         'min-version' => false,
     ];
 
+    public const array ARTIFACT_INSTALL_FIELDS = ['destination', 'root', 'bin-dir', 'bin'];
+
     public const array ARTIFACT_TYPE_FIELDS = [ // [required_fields, optional_fields]
         'filelist' => [['url', 'regex'], ['extract']],
         'git' => [['url'], ['extract', 'submodules', 'rev', 'regex']],
@@ -145,7 +147,7 @@ class ConfigValidator
         }
 
         // Define allowed artifact fields
-        $allowed_artifact_fields = ['source', 'source-mirror', 'binary', 'binary-mirror', 'metadata'];
+        $allowed_artifact_fields = ['source', 'source-mirror', 'binary', 'binary-mirror', 'metadata', 'install'];
 
         foreach ($data as $name => $artifact) {
             // First pass: validate unknown fields
@@ -170,6 +172,11 @@ class ConfigValidator
                     if (is_assoc_array($v)) {
                         self::validateArtifactObjectField($name, $v);
                     }
+                    continue;
+                }
+                // check install field
+                if ($k === 'install') {
+                    self::validateArtifactInstallField($name, $v);
                     continue;
                 }
                 // check binary field
@@ -303,6 +310,27 @@ class ConfigValidator
             return false;
         }
         return true;
+    }
+
+    /**
+     * Validate the artifact 'install' field.
+     *
+     * @param int|string $item_name Artifact name (for error messages)
+     * @param mixed      $value     Install field value
+     */
+    private static function validateArtifactInstallField(int|string $item_name, mixed $value): void
+    {
+        if (!is_assoc_array($value)) {
+            throw new ValidationException("artifact [{$item_name}] field [install] must be an object");
+        }
+        foreach ($value as $k => $v) {
+            if (!in_array($k, self::ARTIFACT_INSTALL_FIELDS, true)) {
+                throw new ValidationException("artifact [{$item_name}] install has invalid field [{$k}]");
+            }
+            if (!is_string($v)) {
+                throw new ValidationException("artifact [{$item_name}] install field [{$k}] must be string");
+            }
+        }
     }
 
     /**

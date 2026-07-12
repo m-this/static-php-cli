@@ -26,11 +26,9 @@ use StaticPHP\Util\V2CompatLayer;
  * 4. If extract is array (dict): selective extraction (file mapping)
  *
  * Extraction rules for binary:
- * 1. If extract is not specified: PKG_ROOT_PATH (standard mode)
- * 2. If extract is "hosted": BUILD_ROOT_PATH (standard mode, for pre-built libraries)
- * 3. If extract is relative path: PKG_ROOT_PATH/{value} (standard mode)
- * 4. If extract is absolute path: {value} (standard mode)
- * 5. If extract is array (dict): selective extraction mode
+ * 1. If extract is array (dict): selective extraction (file mapping)
+ * 2. Otherwise: standard extraction to the install destination resolved by
+ *    Artifact::getInstallDestination() (default: PKG_ROOT_PATH)
  */
 class ArtifactExtractor
 {

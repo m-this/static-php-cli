@@ -354,6 +354,133 @@ class ArtifactTest extends TestCase
         putenv('EMULATE_PLATFORM');
     }
 
+    public function testGetBinaryExtractConfigWithLegacyStringExtractInBinaryConfig(): void
+    {
+        putenv('EMULATE_PLATFORM=linux-x86_64');
+        $artifact = new Artifact('my-pkg', [
+            'binary' => [
+                'linux-x86_64' => ['type' => 'url', 'url' => 'https://example.com/bin.tar.gz', 'extract' => '{pkg_root_path}/my-pkg'],
+            ],
+        ]);
+
+        $config = $artifact->getBinaryExtractConfig();
+        $this->assertSame('standard', $config['mode']);
+        $this->assertSame(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/my-pkg'), $config['path']);
+        putenv('EMULATE_PLATFORM');
+    }
+
+    // ==================== getInstallDestination ====================
+
+    public function testGetInstallDestinationDefaultsToPkgRootPath(): void
+    {
+        putenv('EMULATE_PLATFORM=linux-x86_64');
+        $artifact = new Artifact('my-pkg', ['binary' => ['linux-x86_64' => ['type' => 'url', 'url' => 'https://example.com/bin.tar.gz']]]);
+
+        $this->assertSame(PKG_ROOT_PATH, $artifact->getInstallDestination());
+        putenv('EMULATE_PLATFORM');
+    }
+
+    public function testGetInstallDestinationWithRelativeValueResolvesAgainstPkgRootPath(): void
+    {
+        $artifact = new Artifact('zig', [
+            'binary' => [],
+            'install' => ['destination' => 'zig'],
+        ]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/zig');
+        $this->assertSame($expected, $artifact->getInstallDestination());
+    }
+
+    public function testGetInstallDestinationPrefersCacheExtractOverConfig(): void
+    {
+        $artifact = new Artifact('zig', [
+            'binary' => [],
+            'install' => ['destination' => 'zig'],
+        ]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/other');
+        $this->assertSame($expected, $artifact->getInstallDestination(['extract' => '{pkg_root_path}/other']));
+    }
+
+    public function testGetInstallDestinationPrefersInstallConfigOverLegacyBinaryExtract(): void
+    {
+        putenv('EMULATE_PLATFORM=linux-x86_64');
+        $artifact = new Artifact('my-pkg', [
+            'binary' => [
+                'linux-x86_64' => ['type' => 'url', 'url' => 'https://example.com/bin.tar.gz', 'extract' => 'legacy-dir'],
+            ],
+            'install' => ['destination' => 'new-dir'],
+        ]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/new-dir');
+        $this->assertSame($expected, $artifact->getInstallDestination());
+        putenv('EMULATE_PLATFORM');
+    }
+
+    // ==================== getInstallRoot / getInstallBinDir / getInstallBin ====================
+
+    public function testGetInstallRootDefaultsToPkgRootPath(): void
+    {
+        $artifact = new Artifact('my-pkg', ['binary' => []]);
+
+        $this->assertSame(PKG_ROOT_PATH, $artifact->getInstallRoot());
+    }
+
+    public function testGetInstallRootWithRelativeValueResolvesAgainstPkgRootPath(): void
+    {
+        $artifact = new Artifact('zig', ['binary' => [], 'install' => ['root' => 'zig']]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/zig');
+        $this->assertSame($expected, $artifact->getInstallRoot());
+    }
+
+    public function testGetInstallBinDirDefaultsToBinUnderInstallRoot(): void
+    {
+        $artifact = new Artifact('my-pkg', ['binary' => []]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/bin');
+        $this->assertSame($expected, $artifact->getInstallBinDir());
+    }
+
+    public function testGetInstallBinDirWithEmptyValueIsInstallRoot(): void
+    {
+        $artifact = new Artifact('zig', ['binary' => [], 'install' => ['root' => 'zig', 'bin-dir' => '']]);
+
+        $this->assertSame($artifact->getInstallRoot(), $artifact->getInstallBinDir());
+    }
+
+    public function testGetInstallBinDirResolvesRelativeToInstallRoot(): void
+    {
+        $artifact = new Artifact('protoc', ['binary' => [], 'install' => ['root' => 'protoc', 'bin-dir' => 'bin']]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/protoc/bin');
+        $this->assertSame($expected, $artifact->getInstallBinDir());
+    }
+
+    public function testGetInstallBinDefaultsToArtifactNameUnderBinDir(): void
+    {
+        $artifact = new Artifact('zig', ['binary' => [], 'install' => ['root' => 'zig', 'bin-dir' => '']]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/zig/zig');
+        $this->assertSame($expected, $artifact->getInstallBin());
+    }
+
+    public function testGetInstallBinUsesConfiguredBinName(): void
+    {
+        $artifact = new Artifact('go-win', ['binary' => [], 'install' => ['root' => 'go-win', 'bin' => 'go.exe']]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/go-win/bin/go.exe');
+        $this->assertSame($expected, $artifact->getInstallBin());
+    }
+
+    public function testGetInstallBinWithExplicitNameOverridesConfig(): void
+    {
+        $artifact = new Artifact('go-win', ['binary' => [], 'install' => ['root' => 'go-win', 'bin' => 'go.exe']]);
+
+        $expected = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, PKG_ROOT_PATH . '/go-win/bin/gofmt.exe');
+        $this->assertSame($expected, $artifact->getInstallBin('gofmt.exe'));
+    }
+
     // ==================== getBinaryDir ====================
 
     public function testGetBinaryDirDelegatesToGetBinaryExtractConfig(): void
