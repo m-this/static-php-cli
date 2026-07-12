@@ -17,15 +17,16 @@ class maxminddb extends PhpExtensionPackage
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-maxminddb')]
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-maxminddb')]
     #[PatchDescription('Patch maxminddb extension for buildconf to support new source structure')]
-    public function patchBeforeBuildconf(): void
+    public function patchBeforeBuildconf(): bool
     {
         if (file_exists("{$this->getSourceDir()}/config.m4")) {
-            return;
+            return false;
         }
         // move ext/maxminddb/ext/* to ext/maxminddb/
         $files = FileSystem::scanDirFiles("{$this->getSourceDir()}/ext", false, true);
         foreach ($files as $file) {
             rename("{$this->getSourceDir()}/ext/{$file}", "{$this->getSourceDir()}/{$file}");
         }
+        return true;
     }
 }

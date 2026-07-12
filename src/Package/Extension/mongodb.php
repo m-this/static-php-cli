@@ -18,32 +18,33 @@ class mongodb extends PhpExtensionPackage
 {
     #[BeforeStage('php', [php::class, 'configureForUnix'], 'ext-mongodb')]
     #[PatchDescription('Export PHP_VERSION_ID so mongo-php-driver >= 2.3.3 skips its php-config lookup (in-tree builds have no php-config).')]
-    public function exportPhpVersionIdForUnix(): void
+    public function exportPhpVersionIdForUnix(): bool
     {
         $id = php::getPHPVersionID();
         f_putenv("PHP_VERSION_ID={$id}");
+        return true;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-mongodb')]
     #[PatchDescription('Add /utf-8 flag to CFLAGS_MONGODB for Windows build to fix compilation error on non-English Windows.')]
-    public function patchBeforeBuild(): void
+    public function patchBeforeBuild(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/config.w32",
             'ADD_FLAG("CFLAGS_MONGODB", "/D KMS_MESSAGE_LITTLE_ENDIAN=1 /D MONGOCRYPT_LITTLE_ENDIAN=1 /D MLIB_USER=1");',
             'ADD_FLAG("CFLAGS_MONGODB", "/D KMS_MESSAGE_LITTLE_ENDIAN=1  /D MONGOCRYPT_LITTLE_ENDIAN=1 /D MLIB_USER=1");' . "\n    ADD_FLAG(\"CFLAGS_MONGODB\", \"/utf-8\");",
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-mongodb')]
     #[PatchDescription('Replace src/libmongoc/ with ${ac_config_dir}/src/libmongoc/ in config.m4 to fix the build on Unix-like systems.')]
-    public function patchBeforeBuildconfUnix(): void
+    public function patchBeforeBuildconfUnix(): bool
     {
-        FileSystem::replaceFileRegex(
+        return FileSystem::replaceFileRegex(
             $this->getSourceDir() . '/config.m4',
             '/^(\s+)(src\/libmongoc\/)/m',
             '$1${ac_config_dir}/$2'
-        );
+        ) > 0;
     }
 
     #[CustomPhpConfigureArg('Darwin')]

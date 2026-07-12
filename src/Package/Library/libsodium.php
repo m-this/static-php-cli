@@ -21,10 +21,10 @@ class libsodium
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Replace SODIUM_STATIC define guard with unconditional #if 1 for MSVC static linking')]
-    public function patchBeforeBuild(LibraryPackage $lib): void
+    public function patchBeforeBuild(LibraryPackage $lib): bool
     {
         spc_skip_if(SystemTarget::getTargetOS() !== 'Windows', 'This patch is only for Windows builds.');
-        FileSystem::replaceFileStr($lib->getSourceDir() . '\src\libsodium\include\sodium\export.h', '#ifdef SODIUM_STATIC', '#if 1');
+        return FileSystem::replaceFileStr($lib->getSourceDir() . '\src\libsodium\include\sodium\export.h', '#ifdef SODIUM_STATIC', '#if 1') > 0;
     }
 
     #[BuildFor('Linux')]

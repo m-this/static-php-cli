@@ -29,15 +29,15 @@ class imap extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'makeCliForUnix'], 'ext-imap')]
     #[PatchDescription('Fix imap zend_zval_value_name() call for PHP 8.2 compatibility')]
-    public function patchBeforeMake(): void
+    public function patchBeforeMake(): bool
     {
         // zend_zval_value_name() was introduced in PHP 8.3; PHP 8.2 imap backported the call but not the declaration
         // replace with the equivalent PHP 8.2-compatible function
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/php_imap.c",
             'zend_zval_value_name(data)',
             'zend_zval_type_name(data)'
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-imap')]

@@ -16,14 +16,16 @@ class openssl
 {
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'ext-openssl')]
     #[PatchDescription('Patch OpenSSL extension for PHP 8.0 compatibility with OpenSSL 3')]
-    public function patchBeforeMake(): void
+    public function patchBeforeMake(): bool
     {
         // patch openssl3 with php8.0 bug
         if (php::getPHPVersionID() < 80100) {
             $openssl_c = file_get_contents(SOURCE_PATH . '/php-src/ext/openssl/openssl.c');
             $openssl_c = preg_replace('/REGISTER_LONG_CONSTANT\s*\(\s*"OPENSSL_SSLV23_PADDING"\s*.+;/', '', $openssl_c);
             file_put_contents(SOURCE_PATH . '/php-src/ext/openssl/openssl.c', $openssl_c);
+            return true;
         }
+        return false;
     }
 
     #[CustomPhpConfigureArg('Darwin')]

@@ -18,16 +18,18 @@ class glfw extends PhpExtensionPackage
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-glfw')]
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-glfw')]
     #[PatchDescription('Patch glfw extension before buildconf')]
-    public function patchBeforeBuildconf(): void
+    public function patchBeforeBuildconf(): bool
     {
         if (!file_exists(SOURCE_PATH . '/php-src/ext/glfw')) {
             FileSystem::copyDir($this->getSourceDir(), SOURCE_PATH . '/php-src/ext/glfw');
+            return true;
         }
+        return false;
     }
 
     #[BeforeStage('php', [php::class, 'configureForUnix'], 'ext-glfw')]
     #[PatchDescription('Patch glfw extension before configure')]
-    public function patchBeforeConfigure(): void
+    public function patchBeforeConfigure(): bool
     {
         FileSystem::replaceFileStr(
             SOURCE_PATH . '/php-src/configure',
@@ -48,5 +50,6 @@ class glfw extends PhpExtensionPackage
             $extra_ldflags .= ' -L/usr/lib/' . SystemTarget::getTargetArch() . '-linux-gnu ';
             putenv('SPC_CMD_VAR_PHP_MAKE_EXTRA_LDFLAGS=' . $extra_ldflags);
         }
+        return true;
     }
 }

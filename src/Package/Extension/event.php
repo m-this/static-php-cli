@@ -35,12 +35,13 @@ class event extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'ext-event')]
     #[PatchDescription('Prevent event extension compile error on macOS')]
-    public function patchBeforeMake(PackageInstaller $installer): void
+    public function patchBeforeMake(PackageInstaller $installer): bool
     {
         // Prevent event extension compile error on macOS
         if (SystemTarget::getTargetOS() === 'Darwin') {
             $php_src = $installer->getTargetPackage('php')->getSourceDir();
-            FileSystem::replaceFileRegex("{$php_src}/main/php_config.h", '/^#define HAVE_OPENPTY 1$/m', '');
+            return FileSystem::replaceFileRegex("{$php_src}/main/php_config.h", '/^#define HAVE_OPENPTY 1$/m', '') > 0;
         }
+        return false;
     }
 }

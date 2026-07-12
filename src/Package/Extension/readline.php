@@ -18,12 +18,13 @@ class readline
 {
     #[BeforeStage('php', [php::class, 'makeCliForUnix'], 'ext-readline')]
     #[PatchDescription('Fix readline static build with musl')]
-    public function beforeMakeLinuxCli(PackageInstaller $installer, ToolchainInterface $toolchain): void
+    public function beforeMakeLinuxCli(PackageInstaller $installer, ToolchainInterface $toolchain): bool
     {
         if ($toolchain->isStatic()) {
             $php_src = $installer->getBuildPackage('php')->getSourceDir();
-            SourcePatcher::patchFile('musl_static_readline.patch', $php_src);
+            return SourcePatcher::patchFile('musl_static_readline.patch', $php_src);
         }
+        return false;
     }
 
     #[AfterStage('php', [php::class, 'makeCliForUnix'], 'ext-readline')]

@@ -24,13 +24,15 @@ class postgresql extends LibraryPackage
 {
     #[BeforeStage('php', [php::class, 'configureForUnix'], 'postgresql')]
     #[PatchDescription('Patch to avoid explicit_bzero detection issues on some systems')]
-    public function patchBeforePHPConfigure(TargetPackage $package): void
+    public function patchBeforePHPConfigure(TargetPackage $package): bool
     {
         if (SystemTarget::getTargetOS() === 'Darwin') {
             // on macOS, explicit_bzero is available but causes build failure due to detection issues, so we fake it as unavailable
             shell()->cd($package->getSourceDir())
                 ->exec('sed -i.backup "s/ac_cv_func_explicit_bzero\" = xyes/ac_cv_func_explicit_bzero\" = x_fake_yes/" ./configure');
+            return true;
         }
+        return false;
     }
 
     #[PatchBeforeBuild]
@@ -39,7 +41,7 @@ class postgresql extends LibraryPackage
     {
         // These patches target the autoconf/Make build; the Windows build uses Meson (see buildWin).
         if (SystemTarget::getTargetOS() === 'Windows') {
-            return true;
+            return false;
         }
         // skip the test on platforms where libpq infrastructure may be provided by statically-linked libraries
         FileSystem::replaceFileStr("{$this->getSourceDir()}/src/interfaces/libpq/Makefile", 'invokes exit\'; exit 1;', 'invokes exit\';');

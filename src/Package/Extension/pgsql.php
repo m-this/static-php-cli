@@ -45,23 +45,23 @@ class pgsql extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-pgsql')]
     #[PatchDescription('Link the Win32 system libraries the static libpq needs')]
-    public function patchConfigW32ForWindows(TargetPackage $package): void
+    public function patchConfigW32ForWindows(TargetPackage $package): bool
     {
         $config = "{$package->getSourceDir()}\\ext\\pgsql\\config.w32";
 
         if (str_contains(FileSystem::readFile($config), 'LIBS_PGSQL')) {
-            return;
+            return false;
         }
 
         // libpq uses SSPI for Windows auth (secur32) and the static libcrypto behind it
         // reads the system cert store (crypt32). Nothing else puts these on the link line
         // when the openssl extension itself is not part of the build.
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             $config,
             'EXTENSION("pgsql", "pgsql.c", PHP_PGSQL_SHARED, "/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1");',
             'EXTENSION("pgsql", "pgsql.c", PHP_PGSQL_SHARED, "/DZEND_ENABLE_STATIC_TSRMLS_CACHE=1");' . "\n\t\t" .
             'ADD_FLAG("LIBS_PGSQL", "secur32.lib crypt32.lib");'
-        );
+        ) > 0;
     }
 
     public function getSharedExtensionEnv(): array

@@ -18,12 +18,12 @@ class ffi extends PhpExtensionPackage
 {
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-ffi')]
     #[PatchDescription('Patch FFI extension on CentOS 7 with -O3 optimization (strncmp issue)')]
-    public function patchBeforeBuildconf(): void
+    public function patchBeforeBuildconf(): bool
     {
         spc_skip_if(!($ver = SystemTarget::getLibcVersion()) || version_compare($ver, '2.17', '>'));
         $ver_id = php::getPHPVersionID(return_null_if_failed: true);
         spc_skip_if($ver_id === null || $ver_id < 80316);
         spc_skip_if(LinuxUtil::getOSRelease()['dist'] !== 'centos');
-        SourcePatcher::patchFile('ffi_centos7_fix_O3_strncmp.patch', SOURCE_PATH . '/php-src');
+        return SourcePatcher::patchFile('ffi_centos7_fix_O3_strncmp.patch', SOURCE_PATH . '/php-src');
     }
 }

@@ -18,7 +18,7 @@ class openssl
      */
     #[AfterSourceExtract('openssl')]
     #[PatchDescription('Patch OpenSSL 1.1 for Darwin (missing string.h include)')]
-    public function patchOpenssl11Darwin(string $target_path): void
+    public function patchOpenssl11Darwin(string $target_path): bool
     {
         spc_skip_if(PHP_OS_FAMILY !== 'Darwin', 'This patch is only for Darwin systems.');
 
@@ -26,10 +26,10 @@ class openssl
 
         spc_skip_if(!file_exists("{$target_path}/openssl/test/v3ext.c"), 'v3ext.c not found, skipping patch.');
 
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$target_path}/openssl/test/v3ext.c",
             '#include <stdio.h>',
             "#include <stdio.h>\n#include <string.h>"
-        );
+        ) > 0;
     }
 }

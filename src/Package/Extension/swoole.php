@@ -43,24 +43,25 @@ class swoole extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'ext-swoole')]
     #[PatchDescription('Fix maximum version check for Swoole 6.2')]
-    public function patchBeforeMake(): void
+    public function patchBeforeMake(): bool
     {
-        FileSystem::replaceFileStr($this->getSourceDir() . '/ext-src/php_swoole_private.h', 'PHP_VERSION_ID > 80500', 'PHP_VERSION_ID >= 80600');
+        return FileSystem::replaceFileStr($this->getSourceDir() . '/ext-src/php_swoole_private.h', 'PHP_VERSION_ID > 80500', 'PHP_VERSION_ID >= 80600') > 0;
     }
 
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'ext-swoole')]
     #[PatchDescription('Fix swoole with event extension <util.h> conflict bug on macOS')]
-    public function patchBeforeMake2(): void
+    public function patchBeforeMake2(): bool
     {
         if (SystemTarget::getTargetOS() === 'Darwin') {
             // Fix swoole with event extension <util.h> conflict bug
             $util_path = shell()->execWithResult('xcrun --show-sdk-path', false)[1][0] . '/usr/include/util.h';
-            FileSystem::replaceFileStr(
+            return FileSystem::replaceFileStr(
                 "{$this->getSourceDir()}/thirdparty/php/standard/proc_open.cc",
                 'include <util.h>',
                 "include \"{$util_path}\"",
-            );
+            ) > 0;
         }
+        return false;
     }
 
     #[CustomPhpConfigureArg('Darwin')]

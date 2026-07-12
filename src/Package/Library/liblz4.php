@@ -18,9 +18,9 @@ class liblz4
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Fix Makefile install target for static liblz4')]
-    public function patchBeforeBuild(LibraryPackage $lib): void
+    public function patchBeforeBuild(LibraryPackage $lib): bool
     {
-        FileSystem::replaceFileStr($lib->getSourceDir() . '/programs/Makefile', 'install: lz4', "install: lz4\n\ninstallewfwef: lz4");
+        return FileSystem::replaceFileStr($lib->getSourceDir() . '/programs/Makefile', 'install: lz4', "install: lz4\n\ninstallewfwef: lz4") > 0;
     }
 
     #[BuildFor('Windows')]

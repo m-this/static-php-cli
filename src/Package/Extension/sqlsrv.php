@@ -17,12 +17,13 @@ class sqlsrv extends PhpExtensionPackage
 {
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-sqlsrv')]
     #[PatchDescription('Remove /sdl /W4 /WX flags from sqlsrv config.w32 to prevent strict compilation failures on Windows (these flags get merged into STATIC_EXT_CFLAGS and applied to Zend engine files)')]
-    public function patchBeforeBuildconfForWindows(): void
+    public function patchBeforeBuildconfForWindows(): bool
     {
         // Fix the compilation issue of sqlsrv on Windows (/sdl causes C4703 to be treated as errors in Zend files)
         if (file_exists(SOURCE_PATH . '/php-src/ext/sqlsrv/config.w32')) {
-            FileSystem::replaceFileStr(SOURCE_PATH . '/php-src/ext/sqlsrv/config.w32', '/sdl /W4 /WX', '');
+            return FileSystem::replaceFileStr(SOURCE_PATH . '/php-src/ext/sqlsrv/config.w32', '/sdl /W4 /WX', '') > 0;
         }
+        return false;
     }
 
     #[BeforeStage('php', [php::class, 'makeForWindows'], 'ext-sqlsrv')]

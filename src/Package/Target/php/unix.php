@@ -36,7 +36,7 @@ trait unix
     #[PatchDescription('Patch SPC_MICRO_PATCHES defined patches (e.g. cli_checks, disable_huge_page)')]
     #[PatchDescription('Patch configure.ac for musl and musl-toolchain')]
     #[PatchDescription('Let php m4 tools use static pkg-config')]
-    public function patchBeforeBuildconf(TargetPackage $package): void
+    public function patchBeforeBuildconf(TargetPackage $package): bool
     {
         // php-src patches from micro (reads SPC_MICRO_PATCHES env var)
         SourcePatcher::patchPhpSrc();
@@ -61,19 +61,21 @@ trait unix
         if (self::getPHPVersionID() >= 80300 && self::getPHPVersionID() < 80400) {
             SourcePatcher::patchFile('spc_fix_avx512_cache_before_80400.patch', $package->getSourceDir());
         }
+        return true;
     }
 
     #[BeforeStage('php', [self::class, 'configureForUnix'], 'php')]
     #[PatchDescription('Patch configure to use -std=gnu17 instead of -std=gnu23 for PHP <= 8.2')]
-    public function patchBeforeConfigure(TargetPackage $package): void
+    public function patchBeforeConfigure(TargetPackage $package): bool
     {
         if (SystemTarget::isUnix() && self::getPHPVersionID() < 80300) {
-            FileSystem::replaceFileStr(
+            return FileSystem::replaceFileStr(
                 "{$package->getSourceDir()}/configure",
                 "for ac_arg in '' -std=gnu23",
                 "for ac_arg in '' -std=gnu17",
-            );
+            ) > 0;
         }
+        return false;
     }
 
     #[Stage]
@@ -148,31 +150,30 @@ trait unix
 
     #[BeforeStage('php', [self::class, 'makeForUnix'], 'php')]
     #[PatchDescription('Patch TSRM.h to fix musl TLS symbol visibility for non-static builds')]
-    public function beforeMakeUnix(ToolchainInterface $toolchain): void
+    public function beforeMakeUnix(ToolchainInterface $toolchain): bool
     {
         if (!$toolchain->isStatic() && SystemTarget::getLibc() === 'musl') {
             // we need to patch the symbol to global visibility, otherwise extensions with `initial-exec` TLS model will fail to load
-            FileSystem::replaceFileStr(
+            return FileSystem::replaceFileStr(
                 SOURCE_PATH . '/php-src/TSRM/TSRM.h',
                 '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
                 '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS __attribute__((visibility("default"))) void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
-            );
-        } else {
-            FileSystem::replaceFileStr(
-                SOURCE_PATH . '/php-src/TSRM/TSRM.h',
-                '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS __attribute__((visibility("default"))) void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
-                '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
-            );
+            ) > 0;
         }
+        return FileSystem::replaceFileStr(
+            SOURCE_PATH . '/php-src/TSRM/TSRM.h',
+            '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS __attribute__((visibility("default"))) void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
+            '#define TSRMLS_MAIN_CACHE_DEFINE() TSRM_TLS void *TSRMLS_CACHE TSRM_TLS_MODEL_ATTR = NULL;',
+        ) > 0;
     }
 
     #[BeforeStage('php', [self::class, 'makeForUnix'], 'php')]
     #[PatchDescription('Patch Makefile to fix //lib path for Linux builds')]
     #[PatchDescription('Patch BUILD_CC to use system cc instead of zig-cc (prevents minilua crash)')]
-    public function tryPatchMakefileUnix(TargetPackage $package, ToolchainInterface $toolchain): void
+    public function tryPatchMakefileUnix(TargetPackage $package, ToolchainInterface $toolchain): bool
     {
         if (SystemTarget::getTargetOS() !== 'Linux') {
-            return;
+            return false;
         }
 
         // replace //lib with /lib in Makefile
@@ -182,11 +183,12 @@ trait unix
             $makefile = "{$package->getSourceDir()}/Makefile";
             FileSystem::replaceFileRegex($makefile, '/^BUILD_CC\s*=\s*zig-cc\s*$/m', 'BUILD_CC = cc');
         }
+        return true;
     }
 
     #[BeforeStage('php', [self::class, 'makeForUnix'], 'php')]
     #[PatchDescription('Patch info.c to hide configure command in release builds')]
-    public function patchInfoCForRelease(): void
+    public function patchInfoCForRelease(): bool
     {
         if (str_contains((string) getenv('SPC_CMD_VAR_PHP_MAKE_EXTRA_LDFLAGS'), '-release')) {
             FileSystem::replaceFileLineContainsString(
@@ -194,13 +196,14 @@ trait unix
                 '#ifdef CONFIGURE_COMMAND',
                 '#ifdef NO_CONFIGURE_COMMAND',
             );
-        } else {
-            FileSystem::replaceFileLineContainsString(
-                SOURCE_PATH . '/php-src/ext/standard/info.c',
-                '#ifdef NO_CONFIGURE_COMMAND',
-                '#ifdef CONFIGURE_COMMAND',
-            );
+            return true;
         }
+        FileSystem::replaceFileLineContainsString(
+            SOURCE_PATH . '/php-src/ext/standard/info.c',
+            '#ifdef NO_CONFIGURE_COMMAND',
+            '#ifdef CONFIGURE_COMMAND',
+        );
+        return false;
     }
 
     #[Stage]
@@ -272,7 +275,6 @@ trait unix
     }
 
     #[Stage]
-    #[PatchDescription('Patch phar extension for micro SAPI to support compressed phar')]
     public function makeMicroForUnix(TargetPackage $package, PackageInstaller $installer, PackageBuilder $builder): void
     {
         InteractiveTerm::setMessage('Building php: ' . ConsoleColor::yellow('make micro'));

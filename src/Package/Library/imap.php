@@ -19,7 +19,7 @@ class imap
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Patch imap build system for Linux and macOS compatibility')]
-    public function patchBeforeBuild(LibraryPackage $lib): void
+    public function patchBeforeBuild(LibraryPackage $lib): bool
     {
         if (SystemTarget::getTargetOS() === 'Linux') {
             $cc = getenv('CC') ?: 'gcc';
@@ -36,13 +36,17 @@ class imap
             SourcePatcher::patchFile('2014_openssl1.1.1_sni.patch', $lib->getSourceDir()); */
             FileSystem::replaceFileStr("{$lib->getSourceDir()}/Makefile", 'SSLINCLUDE=/usr/include/openssl', "SSLINCLUDE={$lib->getIncludeDir()}");
             FileSystem::replaceFileStr("{$lib->getSourceDir()}/Makefile", 'SSLLIB=/usr/lib', "SSLLIB={$lib->getLibDir()}");
-        } elseif (SystemTarget::getTargetOS() === 'Darwin') {
+            return true;
+        }
+        if (SystemTarget::getTargetOS() === 'Darwin') {
             $cc = getenv('CC') ?: 'clang';
             SourcePatcher::patchFile('0001_imap_macos.patch', $lib->getSourceDir());
             FileSystem::replaceFileStr($lib->getSourceDir() . '/src/osdep/unix/Makefile', 'CC=cc', "CC={$cc}");
             FileSystem::replaceFileStr($lib->getSourceDir() . '/Makefile', 'SSLINCLUDE=/usr/include/openssl', 'SSLINCLUDE=' . $lib->getIncludeDir());
             FileSystem::replaceFileStr($lib->getSourceDir() . '/Makefile', 'SSLLIB=/usr/lib', 'SSLLIB=' . $lib->getLibDir());
+            return true;
         }
+        return false;
     }
 
     #[BuildFor('Linux')]

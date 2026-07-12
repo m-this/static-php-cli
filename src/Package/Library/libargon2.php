@@ -18,10 +18,10 @@ class libargon2
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Fix library path for Linux builds')]
-    public function patchBeforeLinuxBuild(LibraryPackage $lib): void
+    public function patchBeforeLinuxBuild(LibraryPackage $lib): bool
     {
         spc_skip_if(SystemTarget::getTargetOS() !== 'Linux', 'Not a Linux build, skipping lib path patch.');
-        FileSystem::replaceFileStr("{$lib->getSourceDir()}/Makefile", 'LIBRARY_REL ?= lib/x86_64-linux-gnu', 'LIBRARY_REL ?= lib');
+        return FileSystem::replaceFileStr("{$lib->getSourceDir()}/Makefile", 'LIBRARY_REL ?= lib/x86_64-linux-gnu', 'LIBRARY_REL ?= lib') > 0;
     }
 
     #[BuildFor('Darwin')]

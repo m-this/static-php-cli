@@ -18,10 +18,10 @@ class net_snmp
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Link with pthread and dl on Linux')]
-    public function patchBeforeBuild(LibraryPackage $lib): void
+    public function patchBeforeBuild(LibraryPackage $lib): bool
     {
         spc_skip_if(SystemTarget::getTargetOS() !== 'Linux', 'This patch is only for Linux systems.');
-        FileSystem::replaceFileStr("{$lib->getSourceDir()}/configure", 'LIBS="-lssl ${OPENSSL_LIBS}"', 'LIBS="-lssl ${OPENSSL_LIBS} -lpthread -ldl"');
+        return FileSystem::replaceFileStr("{$lib->getSourceDir()}/configure", 'LIBS="-lssl ${OPENSSL_LIBS}"', 'LIBS="-lssl ${OPENSSL_LIBS} -lpthread -ldl"') > 0;
     }
 
     #[BuildFor('Darwin')]

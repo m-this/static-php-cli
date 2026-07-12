@@ -31,18 +31,18 @@ class xlswriter extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-xlswriter')]
     #[PatchDescription('Define XML_STATIC so bundled Expat uses plain symbols instead of __declspec(dllimport) in static builds')]
-    public function patchConfigForStaticExpat(): void
+    public function patchConfigForStaticExpat(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/config.w32",
             "' /D USE_SYSTEM_MINIZIP",
             "' /D XML_STATIC /D USE_SYSTEM_MINIZIP"
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'makeForWindows'], 'ext-xlswriter')]
     #[PatchDescription('Fix Windows build: apply win32 patch and add UTF-8 BOM to theme.c')]
-    public function patchBeforeMakeForWindows(): void
+    public function patchBeforeMakeForWindows(): bool
     {
         $source_dir = $this->getSourceDir();
         $theme_file = "{$source_dir}/library/libxlsx/src/theme.c";
@@ -54,5 +54,6 @@ class xlswriter extends PhpExtensionPackage
         if (!str_starts_with($content, $bom)) {
             file_put_contents($theme_file, $bom . $content);
         }
+        return true;
     }
 }

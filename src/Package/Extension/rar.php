@@ -17,11 +17,12 @@ class rar extends PhpExtensionPackage
 {
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-rar')]
     #[PatchDescription('rar extension workaround for newer Xcode clang (>= 15.0)')]
-    public function patchBeforeBuildconf(): void
+    public function patchBeforeBuildconf(): bool
     {
         // workaround for newer Xcode clang (>= 15.0)
         if (SystemTarget::getTargetOS() === 'Darwin') {
-            FileSystem::replaceFileStr("{$this->getSourceDir()}/config.m4", '-Wall -fvisibility=hidden', '-Wall -Wno-incompatible-function-pointer-types -fvisibility=hidden');
+            return FileSystem::replaceFileStr("{$this->getSourceDir()}/config.m4", '-Wall -fvisibility=hidden', '-Wall -Wno-incompatible-function-pointer-types -fvisibility=hidden') > 0;
         }
+        return false;
     }
 }

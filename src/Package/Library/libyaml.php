@@ -19,17 +19,21 @@ class libyaml
 {
     #[PatchBeforeBuild]
     #[PatchDescription('Copy missing cmake helper files required for MSVC build (not included in libyaml git source)')]
-    public function patchBeforeBuild(LibraryPackage $lib): void
+    public function patchBeforeBuild(LibraryPackage $lib): bool
     {
         spc_skip_if(SystemTarget::getTargetOS() !== 'Windows', 'This patch is only for Windows builds.');
+        $patched = false;
         // check missing files: cmake\config.h.in and .\YamlConfig.cmake.in
         if (!file_exists($lib->getSourceDir() . '\cmake\config.h.in')) {
             FileSystem::createDir($lib->getSourceDir() . '\cmake');
             FileSystem::copy(ROOT_DIR . '/src/globals/extra/libyaml_config.h.in', $lib->getSourceDir() . '\cmake\config.h.in');
+            $patched = true;
         }
         if (!file_exists($lib->getSourceDir() . '\YamlConfig.cmake.in')) {
             FileSystem::copy(ROOT_DIR . '/src/globals/extra/libyaml_yamlConfig.cmake.in', $lib->getSourceDir() . '\YamlConfig.cmake.in');
+            $patched = true;
         }
+        return $patched;
     }
 
     #[BuildFor('Darwin')]

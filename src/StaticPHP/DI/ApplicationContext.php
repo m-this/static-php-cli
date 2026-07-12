@@ -146,13 +146,18 @@ class ApplicationContext
         // get if callback has attribute PatchDescription
         $ref = new \ReflectionFunction(\Closure::fromCallable($callback));
         $attributes = $ref->getAttributes(PatchDescription::class);
+        $result = self::getInvoker()->invoke($callback, $context);
         foreach ($attributes as $attribute) {
             $attrInstance = $attribute->newInstance();
             if (function_exists('logger')) {
-                logger()->info(ConsoleColor::magenta('[PATCH]') . ConsoleColor::green(" {$attrInstance->description}"));
+                if ($result === true) {
+                    logger()->info(ConsoleColor::magenta('[PATCH]') . ConsoleColor::green(" {$attrInstance->description}"));
+                } else {
+                    logger()->debug("[PATCH] Skipped: {$attrInstance->description}");
+                }
             }
         }
-        return self::getInvoker()->invoke($callback, $context);
+        return $result;
     }
 
     /**

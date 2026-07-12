@@ -17,26 +17,26 @@ class gmssl extends PhpExtensionPackage
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-gmssl')]
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-gmssl')]
     #[PatchDescription('Fix ext-gmssl v1.1.1 compatibility with GmSSL >= 3.1.0 where SM2_VERIFY_CTX was removed (unified into SM2_SIGN_CTX)')]
-    public function patchSm2VerifyCtx(): void
+    public function patchSm2VerifyCtx(): bool
     {
         // See: https://github.com/crazywhalecc/static-php-cli/issues/1182
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/gmssl.c",
             'SM2_VERIFY_CTX',
             'SM2_SIGN_CTX'
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-gmssl')]
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-gmssl')]
     #[PatchDescription('Fix ext-gmssl v1.1.1: pbkdf2_hmac_sm3_genkey was renamed to sm3_pbkdf2 in GmSSL >= 3.2.0')]
-    public function patchPbkdf2Rename(): void
+    public function patchPbkdf2Rename(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/gmssl.c",
             'pbkdf2_hmac_sm3_genkey',
             'sm3_pbkdf2'
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-gmssl')]

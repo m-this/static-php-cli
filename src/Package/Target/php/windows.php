@@ -29,9 +29,9 @@ trait windows
 {
     #[BeforeStage('php', [self::class, 'buildconfForWindows'])]
     #[PatchDescription('Patch for fixing win32 xml related extensions builds')]
-    public function beforeBuildconfWin(TargetPackage $package): void
+    public function beforeBuildconfWin(TargetPackage $package): bool
     {
-        FileSystem::replaceFileStr("{$package->getSourceDir()}/win32/build/config.w32", 'dllmain.c ', '');
+        return FileSystem::replaceFileStr("{$package->getSourceDir()}/win32/build/config.w32", 'dllmain.c ', '') > 0;
     }
 
     #[Stage]
@@ -98,18 +98,18 @@ trait windows
 
     #[BeforeStage('php', [self::class, 'makeCliForWindows'])]
     #[PatchDescription('Patch Makefile to ensure buildroot/include comes before extension CFLAGS (fixes zip.h conflict with minizip)')]
-    public function patchMakefileIncludeOrder(TargetPackage $package): void
+    public function patchMakefileIncludeOrder(TargetPackage $package): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$package->getSourceDir()}\\Makefile",
             '$(CFLAGS_PHP_OBJ) $(CFLAGS)',
             '$(CFLAGS) $(CFLAGS_PHP_OBJ)'
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [self::class, 'makeCliForWindows'])]
     #[PatchDescription('Patch Windows Makefile for CLI target')]
-    public function patchCLITarget(TargetPackage $package): void
+    public function patchCLITarget(TargetPackage $package): bool
     {
         // search Makefile code line contains "$(BUILD_DIR)\php.exe:"
         $content = FileSystem::readFile("{$package->getSourceDir()}\\Makefile");
@@ -132,6 +132,7 @@ trait windows
         // definition win instead of failing with LNK2005. /ignore:4006 silences the resulting noise.
         $lines[$line_num + 1] = "\t" . '"$(LINK)" /nologo $(PHP_GLOBAL_OBJS_RESP) $(CLI_GLOBAL_OBJS_RESP) $(STATIC_EXT_OBJS_RESP) $(STATIC_EXT_LIBS) $(ASM_OBJS) $(LIBS) $(LIBS_CLI) $(BUILD_DIR)\php.exe.res /out:$(BUILD_DIR)\php.exe $(LDFLAGS) $(LDFLAGS_CLI) /ltcg /nodefaultlib:msvcrt /nodefaultlib:msvcrtd /ignore:4286 /FORCE:MULTIPLE /ignore:4006';
         FileSystem::writeFile("{$package->getSourceDir()}\\Makefile", implode("\r\n", $lines));
+        return true;
     }
 
     #[Stage]
@@ -184,7 +185,7 @@ trait windows
 
     #[BeforeStage('php', [self::class, 'makeCgiForWindows'])]
     #[PatchDescription('Patch Windows Makefile for CGI target')]
-    public function patchCGITarget(TargetPackage $package): void
+    public function patchCGITarget(TargetPackage $package): bool
     {
         // search Makefile code line contains "$(BUILD_DIR)\php-cgi.exe:"
         $content = FileSystem::readFile("{$package->getSourceDir()}\\Makefile");
@@ -210,6 +211,7 @@ trait windows
 
         // Patch cgi-static, comment ZEND_TSRMLS_CACHE_DEFINE()
         FileSystem::replaceFileRegex("{$package->getSourceDir()}\\sapi\\cgi\\cgi_main.c", '/^ZEND_TSRMLS_CACHE_DEFINE\(\)/m', '// ZEND_TSRMLS_CACHE_DEFINE()');
+        return true;
     }
 
     #[Stage]
@@ -275,15 +277,15 @@ trait windows
 
     #[BeforeStage('php', [self::class, 'makeMicroForWindows'])]
     #[PatchDescription('Add /FORCE:MULTIPLE to the micro.sfx link, matching the CLI and CGI targets')]
-    public function patchMicroTarget(TargetPackage $package): void
+    public function patchMicroTarget(TargetPackage $package): bool
     {
         $makefile = "{$package->getSourceDir()}\\Makefile";
         if (str_contains(FileSystem::readFile($makefile), 'LDFLAGS_MICRO=/FORCE:MULTIPLE')) {
-            return;
+            return false;
         }
         // Same reason as the php.exe and php-cgi.exe targets: extension-bundled libs duplicate
         // symbols from php's own objects and the link fails with LNK2005.
-        FileSystem::replaceFileStr($makefile, "\r\nLDFLAGS_MICRO=", "\r\nLDFLAGS_MICRO=/FORCE:MULTIPLE /ignore:4006 ");
+        return FileSystem::replaceFileStr($makefile, "\r\nLDFLAGS_MICRO=", "\r\nLDFLAGS_MICRO=/FORCE:MULTIPLE /ignore:4006 ") > 0;
     }
 
     #[Stage]
@@ -342,7 +344,7 @@ trait windows
 
     #[BeforeStage('php', [self::class, 'makeEmbedForWindows'])]
     #[PatchDescription('Patch Windows Makefile for embed static library target')]
-    public function patchEmbedTarget(TargetPackage $package): void
+    public function patchEmbedTarget(TargetPackage $package): bool
     {
         $makefile_path = "{$package->getSourceDir()}\\Makefile";
         $content = FileSystem::readFile($makefile_path);
@@ -412,6 +414,7 @@ trait windows
         $content = implode("\r\n", $new_lines);
 
         FileSystem::writeFile($makefile_path, $content);
+        return true;
     }
 
     #[Stage]
@@ -500,7 +503,7 @@ trait windows
     #[PatchDescription('Patch SPC_MICRO_PATCHES defined patches')]
     #[PatchDescription('Fix PHP 8.1 static build bug on Windows')]
     #[PatchDescription('Fix PHP Visual Studio version detection')]
-    public function patchBeforeBuildconfForWindows(TargetPackage $package): void
+    public function patchBeforeBuildconfForWindows(TargetPackage $package): bool
     {
         // php-src patches from micro
         SourcePatcher::patchPhpSrc();
@@ -575,6 +578,7 @@ HEADER;
                 rename("{$package->getSourceDir()}\\sapi\\micro\\php_micro.c.win32bak", "{$package->getSourceDir()}\\sapi\\micro\\php_micro.c");
             }
         }
+        return true;
     }
 
     #[Stage]

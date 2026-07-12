@@ -7,10 +7,12 @@ namespace Tests\StaticPHP\DI;
 use DI\Container;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use StaticPHP\Attribute\PatchDescription;
 use StaticPHP\DI\ApplicationContext;
 use StaticPHP\DI\CallbackInvoker;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use ZM\Logger\ConsoleLogger;
 
 /**
  * @internal
@@ -414,6 +416,44 @@ class ApplicationContextTest extends TestCase
         $this->assertSame($invoker1, $invoker2);
     }
 
+    public function testInvokeLogsPatchDescriptionWhenPatchApplies(): void
+    {
+        ApplicationContext::initialize();
+
+        $patches = new class {
+            #[PatchDescription('test patch that applies')]
+            public function patch(): bool
+            {
+                return true;
+            }
+        };
+
+        $records = $this->invokeWithCapturedLogs(fn () => ApplicationContext::invoke([$patches, 'patch']));
+
+        $info_records = array_filter($records, fn (array $r) => $r[0] === 6 && str_contains($r[1], 'test patch that applies'));
+        $this->assertCount(1, $info_records);
+    }
+
+    public function testInvokeDoesNotLogPatchDescriptionWhenPatchReturnsFalse(): void
+    {
+        ApplicationContext::initialize();
+
+        $patches = new class {
+            #[PatchDescription('test patch that does not apply')]
+            public function patch(): bool
+            {
+                return false;
+            }
+        };
+
+        $records = $this->invokeWithCapturedLogs(fn () => ApplicationContext::invoke([$patches, 'patch']));
+
+        $info_records = array_filter($records, fn (array $r) => $r[0] === 6 && str_contains($r[1], 'test patch that does not apply'));
+        $this->assertCount(0, $info_records);
+        $debug_records = array_filter($records, fn (array $r) => $r[0] === 7 && str_contains($r[1], 'test patch that does not apply'));
+        $this->assertCount(1, $debug_records);
+    }
+
     public function testInvokerSingletonConsistencyAfterReset(): void
     {
         ApplicationContext::initialize();
@@ -429,5 +469,28 @@ class ApplicationContextTest extends TestCase
         $this->assertNotSame($invoker1, $invoker2);
         // But getInvoker() and container should still be consistent
         $this->assertSame($invoker2, $invoker3);
+    }
+
+    /**
+     * Run a callback with a temporary logger that records every log call as [int $level, string $message].
+     *
+     * @return array<array{int, string}>
+     */
+    private function invokeWithCapturedLogs(callable $callback): array
+    {
+        global $ob_logger;
+        $original = $ob_logger;
+        $records = [];
+        $ob_logger = new ConsoleLogger();
+        $ob_logger->addLogCallback(function (int $level, string $output, string $message) use (&$records): bool {
+            $records[] = [$level, $message];
+            return false;
+        });
+        try {
+            $callback();
+        } finally {
+            $ob_logger = $original;
+        }
+        return $records;
     }
 }

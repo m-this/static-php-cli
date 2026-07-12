@@ -14,29 +14,28 @@ class php_src
 {
     #[AfterSourceExtract('php-src')]
     #[PatchDescription('Patch PHP source for libxml2 2.12 compatibility on Alpine Linux')]
-    public function patchPhpLibxml212(): void
+    public function patchPhpLibxml212(): bool
     {
         $ver_id = php::getPHPVersionID(return_null_if_failed: true);
         if ($ver_id) {
             if ($ver_id < 80000) {
-                SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
-                return;
+                return SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
             }
             if ($ver_id < 80100) {
                 SourcePatcher::patchFile('spc_fix_libxml2_12_php80.patch', SOURCE_PATH . '/php-src');
-                SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
-                return;
+                return SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
             }
             if ($ver_id < 80200) {
                 // self::patchFile('spc_fix_libxml2_12_php81.patch', SOURCE_PATH . '/php-src');
-                SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
+                return SourcePatcher::patchFile('spc_fix_alpine_build_php80.patch', SOURCE_PATH . '/php-src');
             }
         }
+        return false;
     }
 
     #[AfterSourceExtract('php-src')]
     #[PatchDescription('Patch GD extension for Windows builds')]
-    public function patchGDWin32(): void
+    public function patchGDWin32(): bool
     {
         $ver_id = php::getPHPVersionID(return_null_if_failed: true);
         if ($ver_id) {
@@ -54,15 +53,19 @@ class php_src
             }
             file_put_contents(SOURCE_PATH . '/php-src/ext/gd/config.w32.bak', file_get_contents(SOURCE_PATH . '/php-src/ext/gd/config.w32'));
             file_put_contents(SOURCE_PATH . '/php-src/ext/gd/config.w32', $origin);
+            return true;
         }
+        return false;
     }
 
     #[AfterSourceExtract('php-src')]
     #[PatchDescription('Add LICENSE file to IMAP extension if missing')]
-    public function patchImapLicense(): void
+    public function patchImapLicense(): bool
     {
         if (!file_exists(SOURCE_PATH . '/php-src/ext/imap/LICENSE') && is_dir(SOURCE_PATH . '/php-src/ext/imap')) {
             file_put_contents(SOURCE_PATH . '/php-src/ext/imap/LICENSE', file_get_contents(ROOT_DIR . '/src/globals/extra/Apache_LICENSE'));
+            return true;
         }
+        return false;
     }
 }

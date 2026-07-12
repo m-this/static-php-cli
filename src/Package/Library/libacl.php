@@ -18,14 +18,14 @@ class libacl
 {
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'libacl')]
     #[PatchDescription('Fix FPM_EXTRA_LIBS to avoid linking with acl on Unix')]
-    public function patchBeforeMakePhpUnix(LibraryPackage $lib): void
+    public function patchBeforeMakePhpUnix(LibraryPackage $lib): bool
     {
         $file_path = SOURCE_PATH . '/php-src/Makefile';
         $file_content = FileSystem::readFile($file_path);
         if (!preg_match('/FPM_EXTRA_LIBS =(.*)-lacl/', $file_content)) {
-            return;
+            return false;
         }
-        FileSystem::replaceFileRegex(SOURCE_PATH . '/php-src/Makefile', '/FPM_EXTRA_LIBS =(.*)-lacl ?(.*)/', 'FPM_EXTRA_LIBS =$1$2');
+        return FileSystem::replaceFileRegex(SOURCE_PATH . '/php-src/Makefile', '/FPM_EXTRA_LIBS =(.*)-lacl ?(.*)/', 'FPM_EXTRA_LIBS =$1$2') > 0;
     }
 
     #[BuildFor('Darwin')]

@@ -18,9 +18,10 @@ class phar
 {
     #[BeforeStage('php', [php::class, 'makeMicroForUnix'], 'ext-phar')]
     #[PatchDescription('Patch phar extension for micro SAPI to support compressed phar')]
-    public function beforeMicroUnixBuild(): void
+    public function beforeMicroUnixBuild(): bool
     {
         SourcePatcher::patchMicroPhar(php::getPHPVersionID());
+        return true;
     }
 
     #[AfterStage('php', [php::class, 'makeMicroForUnix'], 'ext-phar')]

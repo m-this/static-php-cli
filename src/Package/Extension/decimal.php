@@ -18,9 +18,9 @@ class decimal extends PhpExtensionPackage
     #[BeforeStage('php', [php::class, 'buildconfForUnix'], 'ext-decimal')]
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-decimal')]
     #[PatchDescription('Fix decimal extension module entry symbol name conflict')]
-    public function patchBeforeBuildconf(): void
+    public function patchBeforeBuildconf(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             $this->getSourceDir() . '/php_decimal.c',
             [
                 'zend_module_entry decimal_module_entry',
@@ -30,18 +30,18 @@ class decimal extends PhpExtensionPackage
                 'zend_module_entry php_decimal_module_entry',
                 'ZEND_GET_MODULE(php_decimal)',
             ]
-        );
+        ) > 0;
     }
 
     #[BeforeStage('php', [php::class, 'buildconfForWindows'], 'ext-decimal')]
     #[PatchDescription('Ensure ext/json MINIT runs before ext/decimal on Windows static builds')]
-    public function patchConfigW32(): void
+    public function patchConfigW32(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             $this->getSourceDir() . '/config.w32',
             'ARG_WITH("decimal", "for decimal support", "no");',
             'ARG_WITH("decimal", "for decimal support",  "no");' . "\n" .
             'ADD_EXTENSION_DEP("decimal", "json");'
-        );
+        ) > 0;
     }
 }

@@ -15,15 +15,15 @@ class micro
 {
     #[BeforeStage('php', [php::class, 'makeEmbedForUnix'], 'php-micro')]
     #[PatchDescription('Patch Makefile to build only libphp.la for embedding')]
-    public function patchBeforeEmbed(TargetPackage $package): void
+    public function patchBeforeEmbed(TargetPackage $package): bool
     {
-        FileSystem::replaceFileStr("{$package->getSourceDir()}/Makefile", 'OVERALL_TARGET =', 'OVERALL_TARGET = libphp.la');
+        return FileSystem::replaceFileStr("{$package->getSourceDir()}/Makefile", 'OVERALL_TARGET =', 'OVERALL_TARGET = libphp.la') > 0;
     }
 
     #[BeforeStage('php', [php::class, 'makeForUnix'], 'php-micro')]
     #[PatchDescription('Patch Makefile to skip installing micro binary')]
-    public function patchMakefileBeforeUnixMake(TargetPackage $package): void
+    public function patchMakefileBeforeUnixMake(TargetPackage $package): bool
     {
-        FileSystem::replaceFileStr("{$package->getSourceDir()}/Makefile", 'install-micro', '');
+        return FileSystem::replaceFileStr("{$package->getSourceDir()}/Makefile", 'install-micro', '') > 0;
     }
 }

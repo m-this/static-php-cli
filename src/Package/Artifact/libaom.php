@@ -14,9 +14,9 @@ class libaom
 {
     #[AfterSourceExtract('libaom')]
     #[PatchDescription('Patch libaom for Linux Musl distributions - posix implicit declaration')]
-    public function patch(string $target_path): void
+    public function patch(string $target_path): bool
     {
         spc_skip_if(SystemTarget::getTargetOS() !== 'Linux' || !LinuxUtil::isMuslDist(), 'Only for Linux Musl distros');
-        SourcePatcher::patchFile('libaom_posix_implict.patch', $target_path);
+        return SourcePatcher::patchFile('libaom_posix_implict.patch', $target_path);
     }
 }

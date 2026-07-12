@@ -12,9 +12,10 @@ class gmssl
 {
     #[AfterSourceExtract('gmssl')]
     #[PatchDescription('Patch gmssl hex.c to rename OPENSSL functions to GMSSL')]
-    public function patch(string $target_path): void
+    public function patch(string $target_path): bool
     {
-        FileSystem::replaceFileStr($target_path . '/src/hex.c', 'unsigned char *OPENSSL_hexstr2buf(const char *str, size_t *len)', 'unsigned char *GMSSL_hexstr2buf(const char *str, size_t *len)');
-        FileSystem::replaceFileStr($target_path . '/src/hex.c', 'OPENSSL_hexchar2int', 'GMSSL_hexchar2int');
+        $count = FileSystem::replaceFileStr($target_path . '/src/hex.c', 'unsigned char *OPENSSL_hexstr2buf(const char *str, size_t *len)', 'unsigned char *GMSSL_hexstr2buf(const char *str, size_t *len)');
+        $count += FileSystem::replaceFileStr($target_path . '/src/hex.c', 'OPENSSL_hexchar2int', 'GMSSL_hexchar2int');
+        return $count > 0;
     }
 }

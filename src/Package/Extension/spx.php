@@ -47,13 +47,13 @@ class spx extends PhpExtensionPackage
 
     #[BeforeStage('php', [php::class, 'configureForUnix'], 'ext-spx')]
     #[PatchDescription('Fix spx extension compile error when configuring')]
-    public function patchBeforeConfigure(): void
+    public function patchBeforeConfigure(): bool
     {
-        FileSystem::replaceFileStr(
+        return FileSystem::replaceFileStr(
             "{$this->getSourceDir()}/Makefile.frag",
             '@cp -r assets/web-ui/*',
             "@cp -r {$this->getSourceDir()}/assets/web-ui/*",
-        );
+        ) > 0;
     }
 
     public function getSharedExtensionEnv(): array
