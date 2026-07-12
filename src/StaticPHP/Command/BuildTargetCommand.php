@@ -7,6 +7,7 @@ namespace StaticPHP\Command;
 use StaticPHP\Artifact\DownloaderOptions;
 use StaticPHP\Package\PackageInstaller;
 use StaticPHP\Registry\PackageLoader;
+use StaticPHP\Util\FileSystem;
 use StaticPHP\Util\V2CompatLayer;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -28,6 +29,7 @@ class BuildTargetCommand extends BaseCommand
             new InputOption('with-suggests', ['L', 'E'], null, 'Resolve and install suggested packages as well'),
             new InputOption('with-packages', null, InputOption::VALUE_REQUIRED, 'add additional packages to install/build, comma separated', ''),
             new InputOption('no-download', null, null, 'Skip downloading artifacts (use existing cached files)'),
+            new InputOption('with-clean', null, null, 'fresh build, remove `source` and `buildroot` dir before build'),
             ...V2CompatLayer::getLegacyBuildOptions(),
         ]);
 
@@ -41,6 +43,13 @@ class BuildTargetCommand extends BaseCommand
 
         // resolve legacy options to new options
         V2CompatLayer::convertOptions($this->input);
+
+        // clean builds and sources
+        if ($this->getOption('with-clean')) {
+            logger()->info('Cleaning source and previous build dir...');
+            FileSystem::removeDir(SOURCE_PATH);
+            FileSystem::removeDir(BUILD_ROOT_PATH);
+        }
 
         $starttime = microtime(true);
         // run installer
