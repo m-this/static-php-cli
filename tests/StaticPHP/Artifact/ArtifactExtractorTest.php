@@ -182,7 +182,113 @@ class ArtifactExtractorTest extends TestCase
         $this->assertSame(SPC_STATUS_ALREADY_EXTRACTED, $result);
     }
 
+    // ==================== doStandardExtract ====================
+
+    public function testDoStandardExtractStagesArchiveAndRenamesIntoPlace(): void
+    {
+        $extractor = $this->createStandardExtractSpy();
+        $target = $this->tempDir . '/target-dir';
+
+        // stale content that must be replaced by the fresh extraction
+        mkdir($target . '/old', 0755, true);
+        file_put_contents($target . '/old/stale.txt', 'stale');
+
+        $extractor->runStandardExtract('my-pkg', ['cache_type' => 'archive', 'filename' => 'my-pkg.tar.gz'], $target);
+
+        // extraction happened in a staging dir next to the target, not in the target itself
+        $this->assertCount(1, $extractor->extract_targets);
+        $this->assertNotSame($target, $extractor->extract_targets[0]);
+        $this->assertSame(dirname($target), dirname($extractor->extract_targets[0]));
+        // the staging tree was renamed into place, replacing the stale target
+        $this->assertFileExists($target . '/payload.txt');
+        $this->assertFileDoesNotExist($target . '/old/stale.txt');
+        // no staging leftovers
+        $this->assertDirectoryDoesNotExist($extractor->extract_targets[0]);
+    }
+
+    public function testDoStandardExtractWithMergeExtractsInPlace(): void
+    {
+        $extractor = $this->createStandardExtractSpy();
+        $target = $this->tempDir . '/merge-target';
+
+        $extractor->runStandardExtract('my-pkg', ['cache_type' => 'archive', 'filename' => 'my-pkg.tar.gz'], $target, true);
+
+        $this->assertSame([$target], $extractor->extract_targets);
+    }
+
+    public function testDoStandardExtractWithNonArchiveTypeExtractsInPlace(): void
+    {
+        $extractor = $this->createStandardExtractSpy();
+        $target = $this->tempDir . '/file-target/tool.whl';
+
+        $extractor->runStandardExtract('my-pkg', ['cache_type' => 'file', 'filename' => 'tool.whl'], $target);
+
+        $this->assertSame([$target], $extractor->extract_targets);
+    }
+
+    public function testDoStandardExtractCleansUpStagingOnFailure(): void
+    {
+        $cache = new ArtifactCache($this->cacheFile);
+        $extractor = new class($cache, false) extends ArtifactExtractor {
+            public ?string $staging_target = null;
+
+            public function runStandardExtract(string $name, array $cache_info, string $target_path): void
+            {
+                $this->doStandardExtract($name, $cache_info, $target_path);
+            }
+
+            protected function validateSourceFile(string $name, string $source_file, string $cache_type): void {}
+
+            protected function extractWithType(string $cache_type, string $source_file, string $target_path, bool $merge = false): void
+            {
+                $this->staging_target = $target_path;
+                mkdir($target_path, 0755, true);
+                file_put_contents($target_path . '/partial.txt', 'partial');
+                throw new \RuntimeException('extraction failed');
+            }
+        };
+        $target = $this->tempDir . '/failed-target';
+
+        try {
+            $extractor->runStandardExtract('my-pkg', ['cache_type' => 'archive', 'filename' => 'my-pkg.tar.gz'], $target);
+            $this->fail('Expected extraction failure');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertDirectoryDoesNotExist($target);
+        $this->assertDirectoryDoesNotExist($extractor->staging_target);
+    }
+
     // ==================== Helpers ====================
+
+    /**
+     * Create an ArtifactExtractor whose extractWithType() records the requested
+     * target and fakes a successful extraction by writing payload.txt there.
+     */
+    private function createStandardExtractSpy(): ArtifactExtractor
+    {
+        $cache = new ArtifactCache($this->cacheFile);
+        return new class($cache, false) extends ArtifactExtractor {
+            /** @var string[] */
+            public array $extract_targets = [];
+
+            public function runStandardExtract(string $name, array $cache_info, string $target_path, bool $merge = false): void
+            {
+                $this->doStandardExtract($name, $cache_info, $target_path, $merge);
+            }
+
+            protected function validateSourceFile(string $name, string $source_file, string $cache_type): void {}
+
+            protected function extractWithType(string $cache_type, string $source_file, string $target_path, bool $merge = false): void
+            {
+                $this->extract_targets[] = $target_path;
+                if (!is_dir($target_path)) {
+                    mkdir($target_path, 0755, true);
+                }
+                file_put_contents($target_path . '/payload.txt', 'ok');
+            }
+        };
+    }
 
     /**
      * Create a mock Package object that returns the given artifact from getArtifact().

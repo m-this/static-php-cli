@@ -285,6 +285,10 @@ class ArtifactExtractor
     /**
      * Standard extraction: extract entire archive to target directory.
      *
+     * Archives are extracted into a staging directory next to the target first,
+     * then renamed into place (the install step). An interrupted extraction can
+     * therefore never leave a half-written target behind.
+     *
      * @param bool $merge when true, merge extracted files into existing target dir instead of wiping it
      */
     protected function doStandardExtract(string $name, array $cache_info, string $target_path, bool $merge = false): void
@@ -295,7 +299,33 @@ class ArtifactExtractor
         // Validate source file exists before extraction
         $this->validateSourceFile($name, $source_file, $cache_type);
 
-        $this->extractWithType($cache_type, $source_file, $target_path, $merge);
+        // Merge targets (e.g. buildroot) and non-archive types are extracted in place.
+        if ($merge || $cache_type !== 'archive') {
+            $this->extractWithType($cache_type, $source_file, $target_path, $merge);
+            return;
+        }
+
+        $target_path = FileSystem::convertPath($target_path);
+        FileSystem::createDir(dirname($target_path));
+        $staging_path = dirname($target_path) . DIRECTORY_SEPARATOR . '.spc-extract-' . bin2hex(random_bytes(8));
+
+        try {
+            $this->extractWithType($cache_type, $source_file, $staging_path);
+
+            // Install step: replace the target with the fully extracted staging tree.
+            if (is_dir($target_path)) {
+                FileSystem::removeDir($target_path);
+            } elseif (is_file($target_path)) {
+                unlink($target_path);
+            }
+            self::moveFileOrDir($staging_path, $target_path);
+        } finally {
+            if (is_dir($staging_path)) {
+                FileSystem::removeDir($staging_path);
+            } elseif (is_file($staging_path)) {
+                unlink($staging_path);
+            }
+        }
     }
 
     /**
