@@ -52,9 +52,9 @@ curl:
 
 ## 类型
 
-Artifact 包含 `source`、`binary` 和 `metadata` 三个部分。
+Artifact 包含 `source`、`binary`、`install` 和 `metadata` 四个部分。
 
-其中，`source` 代表源码，`binary` 代表预构建的二进制文件，`metadata` 则包含一些额外的信息（如许可证文件路径等）。`source` 和 `binary` 都支持直接定义下载 URL 的方式，也支持引用同名 Artifact 定义的方式（如上例所示）。
+其中，`source` 代表源码，`binary` 代表预构建的二进制文件，`install` 声明二进制文件的安装位置，`metadata` 则包含一些额外的信息（如许可证文件路径等）。`source` 和 `binary` 都支持直接定义下载 URL 的方式，也支持引用同名 Artifact 定义的方式（如上例所示）。
 
 下面是一个 artifact 配置的对象格式
 
@@ -67,6 +67,11 @@ Artifact 包含 `source`、`binary` 和 `metadata` 三个部分。
     linux-aarch64: {source-object} # (optional)
     macos-x86_64: {source-object} # (optional)
     macos-aarch64: {source-object} # (optional)
+  install: # (optional)
+    destination: zig # (optional) 二进制文件的安装位置，默认：{pkg_root_path}
+    root: zig # (optional) 安装后的根目录，默认：{pkg_root_path}
+    bin-dir: '' # (optional) 可执行文件目录，相对于 root（'' 表示 root 本身），默认：bin
+    bin: '' # (optional) bin-dir 中默认可执行文件名，默认：{artifact-name}
   metadata: # (optional)
     license: "" # (optional) SPDX
     license-files: ["LICENSE"] # License files from original source dir
@@ -80,6 +85,25 @@ Artifact 包含 `source`、`binary` 和 `metadata` 三个部分。
   type: "url" # Download type
   # ...: Different type requires differnt keys here, read below
   extract: "path/to/dir" # (optional) Change extract dir, default: `SOURCE_PATH/{artifact-name}`
+```
+
+## Install
+
+`install` 字段声明**二进制** Artifact 的安装位置以及安装后的目录结构。对于 `source`，`extract` 仍然表示源码的存放路径；二进制文件的安装路径则在这里声明。
+
+- `destination` — 解压后的二进制文件在安装阶段放置的路径，默认：`{pkg_root_path}`。
+- `root` — 安装后目录树的根目录，默认：`{pkg_root_path}`。
+- `bin-dir` — 可执行文件所在目录，相对于 `root`（空字符串表示 `root` 本身），默认：`bin`。
+- `bin` — `bin-dir` 中默认可执行文件名，默认：Artifact 名称。
+
+`destination` 和 `root` 的相对路径基于 `{pkg_root_path}` 解析。所有值均支持 `{pkg_root_path}`、`{build_root_path}` 等路径变量。
+
+```yaml
+# zig 将整个目录树解压到 pkgroot/zig，可执行文件位于根目录
+install:
+  destination: zig
+  root: zig
+  bin-dir: ''
 ```
 
 ## Metadata

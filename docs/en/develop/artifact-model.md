@@ -52,10 +52,11 @@ curl:
 
 ## Structure
 
-An artifact has three top-level sections: `source`, `binary`, and `metadata`.
+An artifact has four top-level sections: `source`, `binary`, `install`, and `metadata`.
 
 - `source` — the source code archive
 - `binary` — pre-built binaries for specific platforms
+- `install` — where the binary artifact is installed and how to locate it afterwards
 - `metadata` — additional information such as license paths
 
 Both `source` and `binary` accept either an inline source object or a reference to a standalone artifact by name (as shown above).
@@ -71,6 +72,11 @@ Full artifact object format:
     linux-aarch64: {source-object} # (optional)
     macos-x86_64: {source-object} # (optional)
     macos-aarch64: {source-object} # (optional)
+  install: # (optional)
+    destination: zig # (optional) Where the binary artifact is placed; default: {pkg_root_path}
+    root: zig # (optional) Root of the installed tree; default: {pkg_root_path}
+    bin-dir: '' # (optional) Binaries dir, relative to root ('' = root itself); default: bin
+    bin: '' # (optional) Default binary name inside bin-dir; default: {artifact-name}
   metadata: # (optional)
     license: "" # (optional) SPDX identifier
     license-files: ["LICENSE"] # License files from the source directory
@@ -84,6 +90,25 @@ The basic format of a `source-object`:
   type: "url" # Download type
   # ...: Additional keys depend on the type; see below
   extract: "path/to/dir" # (optional) Override extract path; default: SOURCE_PATH/{artifact-name}
+```
+
+## Install
+
+The `install` field declares where a **binary** artifact is installed and how to locate it afterwards. For `source`, the `extract` key keeps its meaning of "where the source code goes"; for binaries, the installation path is declared here instead.
+
+- `destination` — the path the extracted binary artifact is placed at during install. Default: `{pkg_root_path}`.
+- `root` — the root directory of the installed tree. Default: `{pkg_root_path}`.
+- `bin-dir` — the directory containing executables, relative to `root`. An empty string means `root` itself. Default: `bin`.
+- `bin` — the default executable name inside `bin-dir`. Default: the artifact name.
+
+Relative `destination` and `root` values are resolved against `{pkg_root_path}`. All values support path variables such as `{pkg_root_path}` and `{build_root_path}`.
+
+```yaml
+# zig unpacks its whole tree into pkgroot/zig, with executables at the tree root
+install:
+  destination: zig
+  root: zig
+  bin-dir: ''
 ```
 
 ## Metadata
