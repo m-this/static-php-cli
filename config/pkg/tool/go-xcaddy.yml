@@ -2,6 +2,10 @@ go-xcaddy:
   type: tool
   artifact:
     binary: custom
+    install:
+      destination: go-xcaddy
+      root: go-xcaddy
+      bin-dir: bin
   env:
     GOROOT: '{pkg_root_path}/go-xcaddy'
     GOBIN: '{pkg_root_path}/go-xcaddy/bin'
@@ -12,4 +16,3 @@ go-xcaddy:
     provides:
       - go
       - gofmt
-    binary-subdir: go-xcaddy/bin

@@ -2,5 +2,8 @@ rust:
   type: target
   artifact:
     binary: custom
+    install:
+      destination: rust-install
+      root: rust
   path:
     - '{pkg_root_path}/rust/bin'

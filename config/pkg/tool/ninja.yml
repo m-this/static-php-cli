@@ -6,4 +6,3 @@ ninja:
   tool:
     provides:
       - ninja.exe
-    binary-subdir: bin

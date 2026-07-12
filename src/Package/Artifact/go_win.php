@@ -50,7 +50,7 @@ class go_win
             throw new DownloaderException("Hash mismatch for downloaded go-win binary. Expected {$hash}, got {$file_hash}");
         }
 
-        return DownloadResult::archive(basename($path), ['url' => $url, 'version' => $version], extract: '{pkg_root_path}/go-win', verified: true, version: $version);
+        return DownloadResult::archive(basename($path), ['url' => $url, 'version' => $version], verified: true, version: $version);
     }
 
     #[CustomBinaryCheckUpdate('go-win', ['windows-x86_64'])]

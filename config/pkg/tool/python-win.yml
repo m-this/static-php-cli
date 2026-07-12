@@ -2,7 +2,10 @@ python-win:
   type: tool
   artifact:
     binary: custom
+    install:
+      destination: python-win
+      root: python-win
+      bin-dir: tools
   tool:
     provides:
       - python.exe
-    binary-subdir: python-win/tools

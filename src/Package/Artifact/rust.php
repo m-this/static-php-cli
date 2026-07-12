@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Package\Artifact;
 
+use StaticPHP\Artifact\Artifact;
 use StaticPHP\Artifact\ArtifactDownloader;
 use StaticPHP\Artifact\Downloader\DownloadResult;
 use StaticPHP\Artifact\Downloader\Type\CheckUpdateResult;
@@ -46,7 +47,7 @@ class rust
         $download_url = "https://static.rust-lang.org/dist/rust-{$latest_version}-{$arch}-unknown-linux-{$distro}.tar.xz";
         $path = DOWNLOAD_PATH . DIRECTORY_SEPARATOR . basename($download_url);
         default_shell()->executeCurlDownload($download_url, $path, retries: $downloader->getRetry());
-        return DownloadResult::archive(basename($path), ['url' => $download_url, 'version' => $latest_version], extract: '{pkg_root_path}/rust-install', verified: false, version: $latest_version);
+        return DownloadResult::archive(basename($path), ['url' => $download_url, 'version' => $latest_version], verified: false, version: $latest_version);
     }
 
     #[CustomBinaryCheckUpdate('rust', [
@@ -77,9 +78,9 @@ class rust
         'linux-x86_64',
         'linux-aarch64',
     ])]
-    public function postExtractRust(string $target_path): void
+    public function postExtractRust(string $target_path, Artifact $artifact): void
     {
-        $prefix = PKG_ROOT_PATH . '/rust';
+        $prefix = $artifact->getInstallRoot();
         shell()->exec("cd {$target_path} && ./install.sh --prefix={$prefix}");
     }
 }

@@ -32,7 +32,6 @@ class msys2_build_essentials
             $filename,
             ['url' => $url, 'version' => 'nightly'],
             version: 'nightly',
-            extract: '{pkg_root_path}/msys2-build-essentials',
         );
     }
 

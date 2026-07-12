@@ -2,6 +2,10 @@ zig:
   type: tool
   artifact:
     binary: custom
+    install:
+      destination: zig
+      root: zig
+      bin-dir: ''
   tool:
     provides:
       - zig
@@ -11,4 +15,3 @@ zig:
       - zig-ld.lld
       - zig-ranlib
       - zig-objcopy
-    binary-subdir: zig

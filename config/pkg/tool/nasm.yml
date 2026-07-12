@@ -7,4 +7,3 @@ nasm:
     provides:
       - nasm.exe
       - ndisasm.exe
-    binary-subdir: bin

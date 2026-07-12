@@ -10,4 +10,3 @@ pkg-config:
   tool:
     provides:
       - pkg-config
-    binary-subdir: bin

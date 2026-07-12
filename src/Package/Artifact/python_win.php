@@ -31,7 +31,7 @@ class python_win
         $path = DOWNLOAD_PATH . DIRECTORY_SEPARATOR . "python-win-{$version}.zip";
         default_shell()->executeCurlDownload($url, $path, retries: $downloader->getRetry());
 
-        return DownloadResult::archive(basename($path), ['url' => $url, 'version' => $version], extract: '{pkg_root_path}/python-win', version: $version);
+        return DownloadResult::archive(basename($path), ['url' => $url, 'version' => $version], version: $version);
     }
 
     #[CustomBinaryCheckUpdate('python-win', ['windows-x86_64'])]

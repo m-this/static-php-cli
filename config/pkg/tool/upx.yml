@@ -10,4 +10,3 @@ upx:
       - upx
     provides@windows:
       - upx.exe
-    binary-subdir: bin

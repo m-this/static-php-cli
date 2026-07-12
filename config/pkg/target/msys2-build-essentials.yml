@@ -2,6 +2,9 @@ msys2-build-essentials:
   type: target
   artifact:
     binary: custom
+    install:
+      destination: msys2-build-essentials
+      root: msys2-build-essentials/msys64
   env:
     SPC_MSYS2_PATH: '{pkg_root_path}/msys2-build-essentials/msys64'
   path@windows:

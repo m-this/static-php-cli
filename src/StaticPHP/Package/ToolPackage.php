@@ -22,22 +22,23 @@ use StaticPHP\Util\FileSystem;
  *
  *   nasm:
  *     type: tool
+ *     artifact:
+ *       binary:
+ *         windows-x86_64:
+ *           type: url
+ *           url: 'https://...'
+ *       install:
+ *         destination: nasm                      # where the artifact is placed (default: {pkg_root_path})
+ *         root: nasm                             # installed tree root (default: {pkg_root_path})
+ *         bin-dir: bin                           # binaries dir, relative to root (default: bin, '' = root)
  *     tool:
- *       provides: [nasm.exe, ndisasm.exe]       # executables this tool installs
- *       binary-subdir: ''                        # subdirectory under install root (default: '')
+ *       provides: [nasm.exe, ndisasm.exe]        # executables this tool installs
  *       min-version: '2.16'                      # minimum required version (optional)
  *
  * Fields nested under 'tool' support the same '@windows'/'@unix'/'@macos'/'@linux' suffix
  * overrides as top-level package fields (e.g. 'provides@windows' overrides 'provides' when
  * building on Windows), useful when a tool provides differently-named binaries per OS
  * (e.g. upx vs upx.exe).
- *     artifact:
- *       binary:
- *         windows-x86_64:
- *           type: url
- *           url: 'https://...'
- *           extract:
- *             nasm.exe: '{php_sdk_path}/bin/nasm.exe'
  */
 class ToolPackage extends Package
 {
@@ -73,7 +74,7 @@ class ToolPackage extends Package
     }
 
     /**
-     * Where this tool's own executables live, i.e. {install-root}/{binary-subdir}.
+     * Where this tool's own executables live, i.e. the artifact's install bin-dir.
      */
     public function getBinDir(): string
     {
@@ -81,37 +82,21 @@ class ToolPackage extends Package
     }
 
     /**
-     * Get the install root directory for this tool.
-     *
-     * Defaults to PKG_ROOT_PATH. Override via 'tool.install-root' in YAML
-     * or via the TOOL_INSTALL_ROOT_{NAME} environment variable.
+     * Get the install root directory for this tool ('install.root' in the
+     * artifact config, default: PKG_ROOT_PATH).
      */
     public function getInstallRoot(): string
     {
-        $env_var = 'TOOL_INSTALL_ROOT_' . strtoupper(str_replace('-', '_', $this->name));
-        if ($root = getenv($env_var)) {
-            return $root;
-        }
-        $config_root = $this->getToolField('install-root');
-        if ($config_root !== null) {
-            return FileSystem::replacePathVariable((string) $config_root);
-        }
-        return PKG_ROOT_PATH;
+        return $this->getArtifact()?->getInstallRoot() ?? PKG_ROOT_PATH;
     }
 
     /**
-     * Get the directory where this tool's binaries reside.
-     *
-     * This is {install-root}/{binary-subdir}. If binary-subdir is not
-     * configured, returns the install root directly.
+     * Get the directory where this tool's binaries reside ('install.bin-dir' in
+     * the artifact config, default: {install root}/bin).
      */
     public function getBinaryDir(): string
     {
-        $subdir = $this->getToolField('binary-subdir') ?? '';
-        if ($subdir === '') {
-            return $this->getInstallRoot();
-        }
-        return $this->getInstallRoot() . DIRECTORY_SEPARATOR . $subdir;
+        return $this->getArtifact()?->getInstallBinDir() ?? FileSystem::convertPath(PKG_ROOT_PATH . '/bin');
     }
 
     /**
@@ -181,7 +166,7 @@ class ToolPackage extends Package
     }
 
     /**
-     * Tools install to PKG_ROOT_PATH (or the configured install-root),
+     * Tools install to PKG_ROOT_PATH (or the configured install root),
      * not BUILD_ROOT_PATH.
      */
     public function getInstallTarget(): string

@@ -52,8 +52,6 @@ class ConfigValidator
         // tool type fields (nested under 'tool' key)
         'tool' => ConfigType::ASSOC_ARRAY,
         'provides' => ConfigType::LIST_ARRAY,
-        'binary-subdir' => ConfigType::STRING,
-        'install-root' => ConfigType::STRING,
         'min-version' => ConfigType::STRING,
     ];
 
@@ -112,8 +110,6 @@ class ConfigValidator
 
     public const array TOOL_FIELDS = [
         'provides' => true,
-        'binary-subdir' => false,
-        'install-root' => false,
         'min-version' => false,
     ];
 
