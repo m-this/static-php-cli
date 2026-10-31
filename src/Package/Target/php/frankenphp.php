@@ -313,7 +313,9 @@ trait frankenphp
         [$extra_build_flags, $extra_ldflags, $extra_tags] = $this->getExtraGoFlags();
         $go_build_tags .= $extra_tags;
 
+        // like the other Windows SAPIs, keep debug information only with --no-strip
         $go_ldflags =
+            ($package->getBuildOption('no-strip', false) ? '' : '-s -w ') .
             '-extldflags=-fuse-ld=lld ' .
             "-X 'github.com/caddyserver/caddy/v2/modules/caddyhttp.ServerHeader=FrankenPHP Caddy' " .
             "-X 'github.com/caddyserver/caddy/v2.CustomBinaryName=frankenphp' " .
