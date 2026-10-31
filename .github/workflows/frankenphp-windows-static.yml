@@ -1,0 +1,115 @@
+name: "FrankenPHP static on Windows"
+
+on:
+  workflow_dispatch:
+    inputs:
+      php-version:
+        description: PHP version to compile
+        default: '8.5'
+        type: string
+      extensions:
+        description: Extensions to build (comma separated)
+        default: 'bcmath,ctype,curl,dom,exif,fileinfo,filter,gd,iconv,intl,mbstring,opcache,openssl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,phar,session,simplexml,sodium,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib'
+        type: string
+      embed-app:
+        description: Also build a FrankenPHP binary with an embedded app
+        default: true
+        type: boolean
+  push:
+    branches:
+      - mfe/feat/frankenphp-windows-static
+    paths:
+      - '.github/workflows/frankenphp-windows-static.yml'
+      - 'src/**'
+      - 'config/**'
+
+env:
+  PHP_VERSION: ${{ inputs.php-version || '8.5' }}
+  EXTENSIONS: ${{ inputs.extensions || 'bcmath,ctype,curl,dom,exif,fileinfo,filter,gd,iconv,intl,mbstring,opcache,openssl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,phar,session,simplexml,sodium,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib' }}
+  EMBED_APP: ${{ github.event_name == 'push' || inputs.embed-app }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  build:
+    name: "FrankenPHP PHP ${{ inputs.php-version || '8.5' }} ZTS static (Windows x86_64)"
+    runs-on: windows-2025
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, openssl, mbstring
+          ini-values: memory_limit=-1
+          tools: composer
+        env:
+          phpts: nts
+
+      - name: Install dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist --no-dev
+
+      - name: Download cache key
+        run: |
+          $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes("$env:PHP_VERSION-$env:EXTENSIONS"))).Replace('-', '').ToLower()
+          "DL_HASH=$hash" >> $env:GITHUB_ENV
+
+      - uses: actions/cache@v4
+        with:
+          path: downloads
+          key: spc-frankenphp-windows-downloads-${{ env.DL_HASH }}
+
+      - name: Doctor
+        run: php bin/spc doctor --auto-fix
+
+      - name: Build PHP ZTS + FrankenPHP
+        run: php bin/spc build "$env:EXTENSIONS" --build-cli --build-frankenphp --enable-zts --dl-with-php="$env:PHP_VERSION" -vv
+
+      - name: Stage binaries
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item buildroot\bin\frankenphp.exe dist\frankenphp.exe
+          Copy-Item buildroot\bin\php.exe dist\php.exe
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - name: Upload FrankenPHP
+        uses: actions/upload-artifact@v4
+        with:
+          name: frankenphp-${{ env.PHP_VERSION }}-windows-x86_64
+          path: |
+            dist/frankenphp.exe
+            dist/php.exe
+
+      - name: Test FrankenPHP
+        run: pwsh -NoProfile -File .github/scripts/test-frankenphp-windows.ps1 -Exe dist\frankenphp.exe
+
+      - name: Build FrankenPHP with an embedded app
+        if: env.EMBED_APP == 'true'
+        run: |
+          $app = Join-Path $env:RUNNER_TEMP 'embed-app'
+          New-Item -ItemType Directory -Force $app | Out-Null
+          Set-Content -NoNewline -Path "$app\index.php" -Value '<?php echo "embedded app ok ", PHP_VERSION, " ", __DIR__;'
+          php bin/spc build "$env:EXTENSIONS" --build-frankenphp --enable-zts --no-download --maintainer-skip-build --with-frankenphp-app="$app" -vv
+          Copy-Item buildroot\bin\frankenphp.exe dist\frankenphp-embed.exe
+
+      - name: Upload FrankenPHP with embedded app
+        if: env.EMBED_APP == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frankenphp-embed-${{ env.PHP_VERSION }}-windows-x86_64
+          path: dist/frankenphp-embed.exe
+
+      - name: Test FrankenPHP with embedded app
+        if: env.EMBED_APP == 'true'
+        run: pwsh -NoProfile -File .github/scripts/test-frankenphp-windows.ps1 -Exe dist\frankenphp-embed.exe -EmbeddedApp
+
+      - name: Upload logs
+        if: always() && hashFiles('log/**') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: spc-logs-frankenphp-windows
+          path: log
