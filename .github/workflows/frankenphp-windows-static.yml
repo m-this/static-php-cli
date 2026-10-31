@@ -53,7 +53,7 @@ jobs:
       - name: Install dependencies
         run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist --no-dev
 
-      - name: Download cache key
+      - name: Cache keys
         run: |
           $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes("$env:PHP_VERSION-$env:EXTENSIONS"))).Replace('-', '').ToLower()
           "DL_HASH=$hash" >> $env:GITHUB_ENV
@@ -63,11 +63,38 @@ jobs:
           path: downloads
           key: spc-frankenphp-windows-downloads-${{ env.DL_HASH }}
 
+      # PHP ZTS + its static embed library take ~15 minutes; FrankenPHP is linked on top of
+      # them, so cache the result and only redo the Go part while it is being worked on.
+      - id: cache-php
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            buildroot
+            source
+            pkgroot
+          key: spc-frankenphp-windows-php-${{ env.DL_HASH }}-${{ hashFiles('config/**', 'src/Package/Library/**', 'src/Package/Extension/**', 'src/Package/Target/php.php', 'src/Package/Target/php/windows.php') }}
+
       - name: Doctor
         run: php bin/spc doctor --auto-fix
 
-      - name: Build PHP ZTS + FrankenPHP
-        run: php bin/spc build "$env:EXTENSIONS" --build-cli --build-frankenphp --enable-zts --dl-with-php="$env:PHP_VERSION" -vv
+      - name: Build PHP ZTS (cli + static embed library)
+        if: steps.cache-php.outputs.cache-hit != 'true'
+        run: php bin/spc build "$env:EXTENSIONS" --build-cli --build-embed --enable-zts --dl-with-php="$env:PHP_VERSION" -vv
+
+      - if: steps.cache-php.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            buildroot
+            source
+            pkgroot
+          key: ${{ steps.cache-php.outputs.cache-primary-key }}
+
+      - name: Build FrankenPHP
+        env:
+          SPC_CMD_VAR_FRANKENPHP_GO_BUILD_FLAGS: -x
+          SPC_CMD_VAR_FRANKENPHP_GO_LDFLAGS: -v
+        run: php bin/spc build "$env:EXTENSIONS" --build-frankenphp --enable-zts --dl-with-php="$env:PHP_VERSION" --maintainer-skip-build -vv
 
       - name: Stage binaries
         run: |
