@@ -84,11 +84,16 @@ try {
     foreach ($attempt in 1..30) {
         if ($server.HasExited) { break }
         try {
-            $body = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 $url).Content
-            break
+            $response = Invoke-WebRequest -UseBasicParsing -SkipHttpErrorCheck -TimeoutSec 5 $url
         } catch {
             Start-Sleep -Seconds 1
+            continue
         }
+        if ($response.StatusCode -ne 200) {
+            throw "php-server answered HTTP $($response.StatusCode) on ${url}: $($response.Content)"
+        }
+        $body = $response.Content
+        break
     }
     if ($null -eq $body) {
         Get-Content "$work\server.err" -ErrorAction SilentlyContinue | Write-Host

@@ -117,6 +117,8 @@ jobs:
           $app = Join-Path $env:RUNNER_TEMP 'embed-app'
           New-Item -ItemType Directory -Force $app | Out-Null
           Set-Content -NoNewline -Path "$app\index.php" -Value '<?php echo "embedded app ok ", PHP_VERSION, " ", __DIR__;'
+          # spc skips a target whose binary already exists, which would hand back the plain build
+          Remove-Item buildroot\bin\frankenphp.exe
           php bin/spc build "$env:EXTENSIONS" --build-frankenphp --enable-zts --no-download --maintainer-skip-build --with-frankenphp-app="$app" -vv
           Copy-Item buildroot\bin\frankenphp.exe dist\frankenphp-embed.exe
 
