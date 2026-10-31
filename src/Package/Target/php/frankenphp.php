@@ -212,7 +212,13 @@ trait frankenphp
             $appTarPath = "{$frankenphpSourceDir}/app.tar";
             logger()->info("Creating app.tar from {$frankenphpAppPath}");
 
-            shell()->exec('tar -cf ' . escapeshellarg($appTarPath) . ' -C ' . escapeshellarg($frankenphpAppPath) . ' .');
+            $tarArgs = '-cf ' . escapeshellarg($appTarPath) . ' -C ' . escapeshellarg($frankenphpAppPath) . ' .';
+            if (PHP_OS_FAMILY === 'Windows') {
+                // MSYS2's GNU tar comes first on PATH and reads "D:\..." as a remote host:file; System32 bsdtar does not
+                cmd()->exec(escapeshellarg(getenv('SystemRoot') . '\System32\tar.exe') . " {$tarArgs}");
+            } else {
+                shell()->exec("tar {$tarArgs}");
+            }
 
             $checksum = hash_file('md5', $appTarPath);
             file_put_contents($frankenphpSourceDir . '/app_checksum.txt', $checksum);
@@ -238,6 +244,9 @@ trait frankenphp
                 'Install it in Visual Studio Installer under "C++ Clang tools for Windows", or set the CC environment variable.'
             );
         }
+
+        InteractiveTerm::setMessage('Building frankenphp: ' . ConsoleColor::yellow('processing --with-frankenphp-app option'));
+        $package->runStage([$this, 'processFrankenphpApp']);
 
         $frankenphp_version = $this->getFrankenPHPVersion($package);
         $libphp_version = php::getPHPVersion();
