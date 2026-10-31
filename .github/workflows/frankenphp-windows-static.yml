@@ -91,9 +91,6 @@ jobs:
           key: ${{ steps.cache-php.outputs.cache-primary-key }}
 
       - name: Build FrankenPHP
-        env:
-          SPC_CMD_VAR_FRANKENPHP_GO_BUILD_FLAGS: -x
-          SPC_CMD_VAR_FRANKENPHP_GO_LDFLAGS: -v
         run: php bin/spc build "$env:EXTENSIONS" --build-frankenphp --enable-zts --dl-with-php="$env:PHP_VERSION" --maintainer-skip-build -vv
 
       - name: Stage binaries
