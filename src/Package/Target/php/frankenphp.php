@@ -311,7 +311,11 @@ trait frankenphp
 
         // build tags: skip watcher (no inotify/kqueue on Windows)
         $go_build_tags = 'nobadger,nomysql,nopgx,deprecated_topic,deprecated_claim,nowatcher';
-        if (!$installer->isPackageResolved('brotli')) {
+        $pkg_config = $installer->isPackageResolved('brotli') ? WindowsUtil::findCommand('pkg-config.exe') : null;
+        if ($pkg_config === null && $installer->isPackageResolved('brotli')) {
+            logger()->warning('brotli is built, but cgo needs pkg-config to compile cbrotli and none was found in PATH. Brotli compression is disabled.');
+        }
+        if ($pkg_config === null) {
             $go_build_tags .= ',nobrotli';
         }
         [$extra_build_flags, $extra_ldflags, $extra_tags] = $this->getExtraGoFlags();
@@ -340,6 +344,11 @@ trait frankenphp
             'CGO_CFLAGS' => clean_spaces($cgo_cflags),
             'CGO_LDFLAGS' => $cgo_ldflags,
         ];
+        if ($pkg_config !== null) {
+            // cgo splits PKG_CONFIG like CC, so quote it to survive spaces in the path.
+            $env['PKG_CONFIG'] = "\"{$pkg_config}\"";
+            $env['PKG_CONFIG_PATH'] = $this->windowsPkgConfigPath($pkg_config, "{$lib_dir}/pkgconfig");
+        }
 
         InteractiveTerm::setMessage('Building frankenphp: ' . ConsoleColor::yellow('embedding Windows metadata'));
         $package->runStage([$this, 'embedFrankenphpWindowsMetadata']);
@@ -496,6 +505,18 @@ trait frankenphp
         }
 
         throw new SPCInternalException('Could not find FrankenPHP version in caddy/go.mod');
+    }
+
+    /**
+     * MSYS2's pkgconf splits PKG_CONFIG_PATH on ':' and only understands /d/... paths.
+     */
+    private function windowsPkgConfigPath(string $pkg_config, string $pc_dir): string
+    {
+        $msys2_path = strtolower(rtrim(str_replace('\\', '/', (string) getenv('SPC_MSYS2_PATH')), '/'));
+        if ($msys2_path !== '' && str_starts_with(strtolower(str_replace('\\', '/', $pkg_config)), "{$msys2_path}/")) {
+            return implode(':', array_filter([FileSystem::convertWinPathToMinGW($pc_dir), getenv('PKG_CONFIG_PATH')]));
+        }
+        return implode(';', array_filter([$pc_dir, getenv('PKG_CONFIG_PATH')]));
     }
 
     /**
